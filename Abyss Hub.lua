@@ -1,20 +1,23 @@
--- Тест Starlight UI с gethui
-local Starlight = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/refs/heads/main/Starlight%20UI.lua"))()
+-- Простейший GUI тест
+local screen = Instance.new("ScreenGui")
+screen.Name = "TestGUI"
+screen.Parent = gethui and gethui() or game:GetService("CoreGui")
 
-if not Starlight then return end
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 200)
+frame.Position = UDim2.new(0.5, -150, 0.5, -100)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+frame.Parent = screen
 
--- Создаём окно с указанием родителя
-local Window = Starlight:CreateWindow({
-    Title = "Abyss Hub",
-    Subtitle = "Test",
-    Size = UDim2.new(0, 500, 0, 400),
-    Parent = gethui and gethui() or game:GetService("CoreGui")
-})
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 100, 0, 40)
+button.Position = UDim2.new(0.5, -50, 0.5, -20)
+button.Text = "Click"
+button.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+button.Parent = frame
 
-local Tab = Window:CreateTab("Test", "📁")
-local Group = Tab:CreateGroupbox("Test Group")
-Group:CreateButton("Click Me", function()
-    print("Clicked!")
+button.MouseButton1Click:Connect(function()
+    print("Button clicked!")
 end)
 
-print("Тест завершён")
+print("Simple GUI created")
