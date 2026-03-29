@@ -1,6 +1,6 @@
 --[[
-    Abyss Hub v2.0
-    Luna UI + Исправленный Fast Attack + Правильный Fruit ESP
+    Abyss Hub v2.1
+    Полная версия
 ]]
 
 -- Проверка игры
@@ -55,20 +55,56 @@ updateChar()
 
 -- Состояние
 local state = {
+    auto_farm_level = false,
+    auto_farm_nearby = false,
+    farm_weapon = "Меч",
+    auto_farm_boss = false,
+    selected_boss = "Diamond",
+    boss_weapon = "Меч",
+    boss_fast_attack = true,
+    boss_move = "Телепорт",
+    auto_mastery = false,
+    mastery_type = "Меч",
+    skills = {Z = true, X = true, C = false, V = false, F = false},
+    auto_fruit_spawn = false,
+    auto_fruit_dealer = false,
+    auto_store_fruit = false,
+    auto_chest = false,
+    chest_mode = "Teleport Farm",
+    auto_sea_beast = false,
+    auto_elite = false,
+    auto_observation = false,
+    auto_factory = false,
+    auto_mirage = false,
+    auto_kitsune_collect = false,
+    auto_kitsune_trade = false,
+    kitsune_amount = 10,
     fast_attack = true,
-    pvp_mode = false,
+    anti_stun = false,
+    infinite_energy = false,
     speed_enabled = false,
     speed = 1,
     jump_enabled = false,
     jump = 1,
+    dash_length = 0,
+    infinite_air_jumps = false,
+    silent_aim = false,
+    silent_mode = "FOV",
+    silent_fov = 90,
+    silent_distance = 200,
     fruit_esp = false,
     player_esp = false,
-    npc_esp = false,
     chest_esp = false,
     island_esp = false,
-    flower_esp = false,
     fruit_filter = "Все",
-    window_bind = "RightShift"
+    auto_raid = false,
+    raid_auto_start = false,
+    raid_type = "Buddha",
+    raid_auto_buy = false,
+    raid_auto_fruit = false,
+    raid_max_price = 500000,
+    kill_aura_raid = false,
+    pvp_mode = false
 }
 
 -- ============================================
@@ -91,20 +127,30 @@ _G.BlurModule = function() end
 killBlur()
 
 -- ============================================
--- СКОРОСТЬ И ПРЫЖОК
+-- СКОРОСТЬ И ПРЫЖОК (исправлено)
 -- ============================================
 local function updateSpeed()
     if hum then
-        hum.WalkSpeed = state.speed_enabled and 16 * state.speed or 16
+        if state.speed_enabled then
+            hum.WalkSpeed = 16 * state.speed
+            print("[Speed] Установлена:", hum.WalkSpeed)
+        else
+            hum.WalkSpeed = 16
+        end
     end
 end
 
 local function updateJump()
     if hum then
-        hum.JumpPower = state.jump_enabled and 50 * state.jump or 50
+        if state.jump_enabled then
+            hum.JumpPower = 50 * state.jump
+        else
+            hum.JumpPower = 50
+        end
     end
 end
 
+-- Постоянное обновление
 RS.Heartbeat:Connect(function()
     updateChar()
     updateSpeed()
@@ -112,28 +158,11 @@ RS.Heartbeat:Connect(function()
 end)
 
 -- ============================================
--- FAST ATTACK (только первая M1)
+-- FAST ATTACK (быстрый)
 -- ============================================
 local attackRunning = false
 local lastAttack = 0
-local attackCooldown = 0.18
-
--- Список настоящих Devil Fruits (которые можно съесть)
-local devilFruits = {
-    "Bomb", "Spike", "Chop", "Spring", "Kilo", "Spin",
-    "Flame", "Ice", "Sand", "Dark", "Revive", "Diamond", "Light", "Rubber", "Barrier", "Ghost", "Magma", "Quake",
-    "Buddha", "Love", "Spider", "Phoenix", "Portal", "Rumble",
-    "Dragon", "Leopard", "Mammoth", "T-Rex", "Spirit", "Venom", "Control", "Gravity", "Shadow", "Dough"
-}
-
-local function isDevilFruit(obj)
-    if not obj:IsA("Tool") then return false end
-    local name = obj.Name
-    for _, fruit in ipairs(devilFruits) do
-        if name:find(fruit) then return true end
-    end
-    return false
-end
+local attackCooldown = 0.12
 
 local function getNearestTarget()
     if not root then return nil end
@@ -192,7 +221,7 @@ local function performAttack()
         pcall(function()
             local VIM = game:GetService("VirtualInputManager")
             VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            task.wait(0.03)
+            task.wait(0.02)
             VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
             if VU then VU:ClickButton1() end
         end)
@@ -219,10 +248,26 @@ end
 startFastAttack()
 
 -- ============================================
--- ESP (только Devil Fruits)
+-- ESP (только Fruit, Player, Chest, Island)
 -- ============================================
 local espLabels = {}
 local espActive = false
+
+local devilFruits = {
+    "Bomb", "Spike", "Chop", "Spring", "Kilo", "Spin",
+    "Flame", "Ice", "Sand", "Dark", "Revive", "Diamond", "Light", "Rubber", "Barrier", "Ghost", "Magma", "Quake",
+    "Buddha", "Love", "Spider", "Phoenix", "Portal", "Rumble",
+    "Dragon", "Leopard", "Mammoth", "T-Rex", "Spirit", "Venom", "Control", "Gravity", "Shadow", "Dough"
+}
+
+local function isDevilFruit(obj)
+    if not obj:IsA("Tool") then return false end
+    local name = obj.Name
+    for _, fruit in ipairs(devilFruits) do
+        if name:find(fruit) then return true end
+    end
+    return false
+end
 
 local function getFruitRarity(name)
     local common = {"Bomb", "Spike", "Chop", "Spring", "Kilo", "Spin"}
@@ -286,7 +331,6 @@ end
 local function updateESP()
     if not espActive then return end
     
-    -- Fruit ESP - только Devil Fruits
     if state.fruit_esp then
         for _, obj in ipairs(workspace:GetDescendants()) do
             if isDevilFruit(obj) then
@@ -297,14 +341,11 @@ local function updateESP()
                                   r == "Rare" and Color3.new(0, 0.59, 1) or 
                                   Color3.new(0.78, 0.78, 0.78)
                     addLabel(obj, obj.Name .. " [" .. r .. "]", color, 2.5)
-                else
-                    pcall(function() if espLabels[obj] then espLabels[obj]:Destroy() end end)
                 end
             end
         end
     end
     
-    -- Player ESP
     if state.player_esp then
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LP then
@@ -317,20 +358,6 @@ local function updateESP()
         end
     end
     
-    -- NPC ESP
-    if state.npc_esp then
-        local enemies = workspace:FindFirstChild("Enemies")
-        if enemies then
-            for _, n in ipairs(enemies:GetChildren()) do
-                if n:IsA("Model") and n:FindFirstChild("Humanoid") and n.Humanoid.Health > 0 then
-                    local lvl = n:FindFirstChild("Level") and n.Level.Value or "?"
-                    addLabel(n, n.Name .. " [Lv." .. lvl .. "]", Color3.new(1, 0.65, 0), 3)
-                end
-            end
-        end
-    end
-    
-    -- Chest ESP
     if state.chest_esp then
         for _, c in ipairs(workspace:GetDescendants()) do
             if c:IsA("Model") and (c.Name:lower():find("chest") or c.Name:lower():find("crate")) then
@@ -339,7 +366,6 @@ local function updateESP()
         end
     end
     
-    -- Island ESP
     if state.island_esp then
         for _, i in ipairs(workspace:GetChildren()) do
             if i:IsA("Model") and (i.Name:lower():find("island") or i.Name:lower():find("town") or i.Name:lower():find("port")) then
@@ -348,7 +374,6 @@ local function updateESP()
         end
     end
     
-    -- Очистка
     for obj, label in pairs(espLabels) do
         if not obj or not obj.Parent then
             pcall(function() label:Destroy() end)
@@ -374,7 +399,7 @@ local function stopESP()
 end
 
 -- ============================================
--- ТЕЛЕПОРТЫ
+-- ТЕЛЕПОРТЫ (полный список)
 -- ============================================
 local seaCoords = {
     ["1st Sea"] = Vector3.new(-1250, 80, 330),
@@ -382,8 +407,28 @@ local seaCoords = {
     ["3rd Sea"] = Vector3.new(-1250, 80, 330)
 }
 
+local islands = {
+    ["Pirate Starter"] = Vector3.new(-1150, 80, 380),
+    ["Marine Starter"] = Vector3.new(-1150, 80, 380),
+    ["Jungle"] = Vector3.new(-1150, 80, 380),
+    ["Desert"] = Vector3.new(-1150, 80, 380),
+    ["Sky Islands"] = Vector3.new(-1150, 80, 380),
+    ["Kingdom of Rose"] = Vector3.new(-1150, 80, 380),
+    ["Port Town"] = Vector3.new(-1150, 80, 380),
+    ["Hydra Island"] = Vector3.new(-1150, 80, 380),
+    ["Great Tree"] = Vector3.new(-1150, 80, 380)
+}
+
+local npcs = {
+    ["Monkey"] = Vector3.new(-1150, 80, 380),
+    ["Bandit"] = Vector3.new(-1150, 80, 380),
+    ["Gorilla"] = Vector3.new(-1150, 80, 380)
+}
+
 local function teleport(coords)
-    if root then root.CFrame = CFrame.new(coords) end
+    if root then
+        root.CFrame = CFrame.new(coords)
+    end
 end
 
 -- ============================================
@@ -395,13 +440,79 @@ Window:CreateHomeTab({
     SupportedExecutors = {"Xeno", "Delta", "Vega X", "Arceus X", "Solara", "Hydrogen"}
 })
 
--- PvP вкладка
+-- Вкладка Фарм
+local farmTab = Window:CreateTab({Name = "Фарм", Icon = "grass", ImageSource = "Material"})
+local farmSec = farmTab:CreateSection("Auto Farm")
+farmSec:CreateToggle({Name = "Auto Farm (Уровень)", CurrentValue = false, Callback = function(v) state.auto_farm_level = v end})
+farmSec:CreateToggle({Name = "Auto Farm (Ближайшие)", CurrentValue = false, Callback = function(v) state.auto_farm_nearby = v end})
+farmSec:CreateDropdown({Name = "Оружие", Options = {"Фрукт", "Меч", "Ближний бой"}, CurrentOption = "Меч", Callback = function(v) state.farm_weapon = v end})
+
+local bossSec = farmTab:CreateSection("Auto Farm Boss")
+bossSec:CreateToggle({Name = "Auto Farm Boss", CurrentValue = false, Callback = function(v) state.auto_farm_boss = v end})
+bossSec:CreateDropdown({Name = "Выбор босса", Options = {"Diamond", "Thunder God", "Vice Admiral"}, CurrentOption = "Diamond", Callback = function(v) state.selected_boss = v end})
+bossSec:CreateDropdown({Name = "Оружие (босс)", Options = {"Фрукт", "Меч", "Ближний бой"}, CurrentOption = "Меч", Callback = function(v) state.boss_weapon = v end})
+bossSec:CreateToggle({Name = "Использовать Fast Attack", CurrentValue = true, Callback = function(v) state.boss_fast_attack = v end})
+
+local masterySec = farmTab:CreateSection("Auto Mastery")
+masterySec:CreateToggle({Name = "Auto Mastery", CurrentValue = false, Callback = function(v) state.auto_mastery = v end})
+masterySec:CreateDropdown({Name = "Тип", Options = {"Фрукт", "Меч", "Ближний бой", "Оружие (Gun)"}, CurrentOption = "Меч", Callback = function(v) state.mastery_type = v end})
+masterySec:CreateToggle({Name = "Использовать Z", CurrentValue = true, Callback = function(v) state.skills.Z = v end})
+masterySec:CreateToggle({Name = "Использовать X", CurrentValue = true, Callback = function(v) state.skills.X = v end})
+masterySec:CreateToggle({Name = "Использовать C", CurrentValue = false, Callback = function(v) state.skills.C = v end})
+masterySec:CreateToggle({Name = "Использовать V", CurrentValue = false, Callback = function(v) state.skills.V = v end})
+masterySec:CreateToggle({Name = "Использовать F", CurrentValue = false, Callback = function(v) state.skills.F = v end})
+
+local fruitSec = farmTab:CreateSection("Auto Fruit")
+fruitSec:CreateToggle({Name = "Auto Fruit (Spawn)", CurrentValue = false, Callback = function(v) state.auto_fruit_spawn = v end})
+fruitSec:CreateToggle({Name = "Auto Fruit (Dealer)", CurrentValue = false, Callback = function(v) state.auto_fruit_dealer = v end})
+fruitSec:CreateToggle({Name = "Auto Store Fruit", CurrentValue = false, Callback = function(v) state.auto_store_fruit = v end})
+
+local chestSec = farmTab:CreateSection("Auto Chest")
+chestSec:CreateToggle({Name = "Auto Chest", CurrentValue = false, Callback = function(v) state.auto_chest = v end})
+chestSec:CreateDropdown({Name = "Режим", Options = {"Teleport Farm", "Tween Farm"}, CurrentOption = "Teleport Farm", Callback = function(v) state.chest_mode = v end})
+
+local otherSec = farmTab:CreateSection("Другие функции")
+otherSec:CreateToggle({Name = "Auto Sea Beast", CurrentValue = false, Callback = function(v) state.auto_sea_beast = v end})
+otherSec:CreateToggle({Name = "Auto Elite Hunter", CurrentValue = false, Callback = function(v) state.auto_elite = v end})
+otherSec:CreateToggle({Name = "Auto Observation (Ken Haki)", CurrentValue = false, Callback = function(v) state.auto_observation = v end})
+otherSec:CreateToggle({Name = "Auto Factory", CurrentValue = false, Callback = function(v) state.auto_factory = v end})
+otherSec:CreateToggle({Name = "Auto Mirage Island", CurrentValue = false, Callback = function(v) state.auto_mirage = v end})
+
+local kitsuneSec = farmTab:CreateSection("Auto Kitsune Island")
+kitsuneSec:CreateToggle({Name = "Авто-сбор Azure Embers", CurrentValue = false, Callback = function(v) state.auto_kitsune_collect = v end})
+kitsuneSec:CreateToggle({Name = "Сдавать Azure Embers", CurrentValue = false, Callback = function(v) state.auto_kitsune_trade = v end})
+kitsuneSec:CreateSlider({Name = "Количество для сдачи", Range = {0, 20}, Increment = 1, CurrentValue = 10, Callback = function(v) state.kitsune_amount = v end})
+
+-- Вкладка Телепорты
+local teleTab = Window:CreateTab({Name = "Телепорты", Icon = "navigation", ImageSource = "Material"})
+local teleSec = teleTab:CreateSection("Телепорт между морями")
+teleSec:CreateButton({Name = "Teleport to 1st Sea", Callback = function() teleport(seaCoords["1st Sea"]) Luna:Notification({Title = "Телепорт", Content = "1st Sea"}) end})
+teleSec:CreateButton({Name = "Teleport to 2nd Sea", Callback = function() teleport(seaCoords["2nd Sea"]) Luna:Notification({Title = "Телепорт", Content = "2nd Sea"}) end})
+teleSec:CreateButton({Name = "Teleport to 3rd Sea", Callback = function() teleport(seaCoords["3rd Sea"]) Luna:Notification({Title = "Телепорт", Content = "3rd Sea"}) end})
+
+local islandSec = teleTab:CreateSection("Острова")
+islandSec:CreateButton({Name = "Pirate Starter", Callback = function() teleport(islands["Pirate Starter"]) end})
+islandSec:CreateButton({Name = "Marine Starter", Callback = function() teleport(islands["Marine Starter"]) end})
+islandSec:CreateButton({Name = "Jungle", Callback = function() teleport(islands["Jungle"]) end})
+islandSec:CreateButton({Name = "Desert", Callback = function() teleport(islands["Desert"]) end})
+islandSec:CreateButton({Name = "Sky Islands", Callback = function() teleport(islands["Sky Islands"]) end})
+islandSec:CreateButton({Name = "Kingdom of Rose", Callback = function() teleport(islands["Kingdom of Rose"]) end})
+islandSec:CreateButton({Name = "Port Town", Callback = function() teleport(islands["Port Town"]) end})
+islandSec:CreateButton({Name = "Hydra Island", Callback = function() teleport(islands["Hydra Island"]) end})
+islandSec:CreateButton({Name = "Great Tree", Callback = function() teleport(islands["Great Tree"]) end})
+
+local npcSec = teleTab:CreateSection("NPC")
+npcSec:CreateButton({Name = "Monkey", Callback = function() teleport(npcs["Monkey"]) end})
+npcSec:CreateButton({Name = "Bandit", Callback = function() teleport(npcs["Bandit"]) end})
+npcSec:CreateButton({Name = "Gorilla", Callback = function() teleport(npcs["Gorilla"]) end})
+
+-- Вкладка PvP
 local pvpTab = Window:CreateTab({Name = "PvP", Icon = "sports_mma", ImageSource = "Material"})
 local pvpSec = pvpTab:CreateSection("PvP Functions")
 
 pvpSec:CreateToggle({
     Name = "Fast Attack",
-    Description = "Автоматическая атака (только первая M1)",
+    Description = "Автоматическая атака (быстрая)",
     CurrentValue = true,
     Callback = function(v)
         state.fast_attack = v
@@ -432,7 +543,7 @@ pvpSec:CreateSlider({
     CurrentValue = 1,
     Callback = function(v)
         state.speed = v
-        if state.speed_enabled then updateSpeed() end
+        if state.speed_enabled then updateSpeed()
     end
 })
 
@@ -452,21 +563,32 @@ pvpSec:CreateSlider({
     CurrentValue = 1,
     Callback = function(v)
         state.jump = v
-        if state.jump_enabled then updateJump() end
+        if state.jump_enabled then updateJump()
     end
 })
 
--- ESP вкладка
+pvpSec:CreateSlider({Name = "Dash Length", Range = {0, 200}, Increment = 1, CurrentValue = 0, Callback = function(v) state.dash_length = v end})
+pvpSec:CreateToggle({Name = "Infinite Air Jumps", CurrentValue = false, Callback = function(v) state.infinite_air_jumps = v end})
+pvpSec:CreateToggle({Name = "Anti-Stun", CurrentValue = false, Callback = function(v) state.anti_stun = v end})
+pvpSec:CreateToggle({Name = "Infinite Energy", CurrentValue = false, Callback = function(v) state.infinite_energy = v end})
+
+local silentSec = pvpTab:CreateSection("Silent Aim")
+silentSec:CreateToggle({Name = "Silent Aim", CurrentValue = false, Callback = function(v) state.silent_aim = v end})
+silentSec:CreateDropdown({Name = "Режим", Options = {"FOV", "Ближайший", "Дальнейший", "Слабейший", "Сильнейший"}, CurrentOption = "FOV", Callback = function(v) state.silent_mode = v end})
+silentSec:CreateSlider({Name = "FOV", Range = {0, 360}, Increment = 1, CurrentValue = 90, Callback = function(v) state.silent_fov = v end})
+silentSec:CreateSlider({Name = "Макс. дистанция", Range = {0, 500}, Increment = 10, CurrentValue = 200, Callback = function(v) state.silent_distance = v end})
+
+-- Вкладка ESP
 local espTab = Window:CreateTab({Name = "ESP", Icon = "visibility", ImageSource = "Material"})
 local espSec = espTab:CreateSection("ESP Functions")
 
 espSec:CreateToggle({
     Name = "Fruit ESP",
-    Description = "Показывает Devil Fruits на карте",
+    Description = "Показывает Devil Fruits",
     CurrentValue = false,
     Callback = function(v)
         state.fruit_esp = v
-        local any = state.fruit_esp or state.player_esp or state.npc_esp or state.chest_esp or state.island_esp
+        local any = state.fruit_esp or state.player_esp or state.chest_esp or state.island_esp
         if any then startESP() else stopESP() end
     end
 })
@@ -475,10 +597,7 @@ espSec:CreateDropdown({
     Name = "Fruit Rarity Filter",
     Options = {"Все", "Rare+", "Legendary+", "Mythical"},
     CurrentOption = "Все",
-    Callback = function(v)
-        state.fruit_filter = v
-        if state.fruit_esp then updateESP() end
-    end
+    Callback = function(v) state.fruit_filter = v end
 })
 
 espSec:CreateToggle({
@@ -487,18 +606,7 @@ espSec:CreateToggle({
     CurrentValue = false,
     Callback = function(v)
         state.player_esp = v
-        local any = state.fruit_esp or state.player_esp or state.npc_esp or state.chest_esp or state.island_esp
-        if any then startESP() else stopESP() end
-    end
-})
-
-espSec:CreateToggle({
-    Name = "NPC ESP",
-    Description = "Показывает NPC и мобов",
-    CurrentValue = false,
-    Callback = function(v)
-        state.npc_esp = v
-        local any = state.fruit_esp or state.player_esp or state.npc_esp or state.chest_esp or state.island_esp
+        local any = state.fruit_esp or state.player_esp or state.chest_esp or state.island_esp
         if any then startESP() else stopESP() end
     end
 })
@@ -509,7 +617,7 @@ espSec:CreateToggle({
     CurrentValue = false,
     Callback = function(v)
         state.chest_esp = v
-        local any = state.fruit_esp or state.player_esp or state.npc_esp or state.chest_esp or state.island_esp
+        local any = state.fruit_esp or state.player_esp or state.chest_esp or state.island_esp
         if any then startESP() else stopESP() end
     end
 })
@@ -520,72 +628,36 @@ espSec:CreateToggle({
     CurrentValue = false,
     Callback = function(v)
         state.island_esp = v
-        local any = state.fruit_esp or state.player_esp or state.npc_esp or state.chest_esp or state.island_esp
+        local any = state.fruit_esp or state.player_esp or state.chest_esp or state.island_esp
         if any then startESP() else stopESP() end
     end
 })
 
--- Телепорты вкладка
-local teleTab = Window:CreateTab({Name = "Телепорты", Icon = "navigation", ImageSource = "Material"})
-local teleSec = teleTab:CreateSection("Телепорт между морями")
+-- Вкладка Raid
+local raidTab = Window:CreateTab({Name = "Raid", Icon = "whatshot", ImageSource = "Material"})
+local raidSec = raidTab:CreateSection("Auto Raid")
+raidSec:CreateToggle({Name = "Auto Raid", CurrentValue = false, Callback = function(v) state.auto_raid = v end})
+raidSec:CreateToggle({Name = "Авто-старт", CurrentValue = false, Callback = function(v) state.raid_auto_start = v end})
+raidSec:CreateDropdown({Name = "Выбор рейда", Options = {"Flame", "Ice", "Quake", "Light", "Dark", "Sand", "Magma", "Phoenix", "Rumble", "Buddha", "Spider", "Dough"}, CurrentOption = "Buddha", Callback = function(v) state.raid_type = v end})
+raidSec:CreateToggle({Name = "Авто-покупка рейда", CurrentValue = false, Callback = function(v) state.raid_auto_buy = v end})
+raidSec:CreateToggle({Name = "Авто-доставание фрукта", CurrentValue = false, Callback = function(v) state.raid_auto_fruit = v end})
+raidSec:CreateSlider({Name = "Макс. цена фрукта (Beli)", Range = {0, 1000000}, Increment = 10000, CurrentValue = 500000, Callback = function(v) state.raid_max_price = v end})
+raidSec:CreateToggle({Name = "Kill Aura (5 остров рейда)", CurrentValue = false, Callback = function(v) state.kill_aura_raid = v end})
 
-teleSec:CreateButton({
-    Name = "Teleport to 1st Sea",
-    Callback = function()
-        teleport(seaCoords["1st Sea"])
-        Luna:Notification({Title = "Телепорт", Content = "1st Sea"})
-    end
-})
-
-teleSec:CreateButton({
-    Name = "Teleport to 2nd Sea",
-    Callback = function()
-        teleport(seaCoords["2nd Sea"])
-        Luna:Notification({Title = "Телепорт", Content = "2nd Sea"})
-    end
-})
-
-teleSec:CreateButton({
-    Name = "Teleport to 3rd Sea",
-    Callback = function()
-        teleport(seaCoords["3rd Sea"])
-        Luna:Notification({Title = "Телепорт", Content = "3rd Sea"})
-    end
-})
-
--- Настройки вкладка
+-- Вкладка Настройки
 local setTab = Window:CreateTab({Name = "Настройки", Icon = "settings", ImageSource = "Material"})
-local setSec = setTab:CreateSection("Общие")
+local configSec = setTab:CreateSection("Конфигурации")
+configSec:CreateButton({Name = "Создать конфиг", Callback = function() Luna:Notification({Title = "Конфиг", Content = "В разработке"}) end})
+configSec:CreateButton({Name = "Сохранить конфиг", Callback = function() Luna:Notification({Title = "Конфиг", Content = "В разработке"}) end})
+configSec:CreateButton({Name = "Загрузить конфиг", Callback = function() Luna:Notification({Title = "Конфиг", Content = "В разработке"}) end})
 
-local keyOptions = {"RightShift", "LeftShift", "RightControl", "LeftControl", "K", "L", "U", "I", "O", "P", "Q", "E", "R", "T", "Y", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"}
-
-local keyDropdown = setSec:CreateDropdown({
-    Name = "Клавиша открытия",
-    Options = keyOptions,
-    CurrentOption = state.window_bind,
-    Callback = function(opt)
-        local newKey = opt
-        if type(opt) == "table" then
-            newKey = opt[1] or state.window_bind
-        end
-        state.window_bind = newKey
-        updateKeybind()
-        Luna:Notification({Title = "Настройки", Content = "Клавиша изменена на " .. newKey, Duration = 1})
-    end
-})
-
-setSec:CreateButton({
-    Name = "Unload Script",
-    Callback = function()
-        stopFastAttack()
-        stopESP()
-        Window:Destroy()
-        print("Abyss Hub выгружен")
-    end
-})
+local generalSec = setTab:CreateSection("Общие")
+generalSec:CreateButton({Name = "Auto Update", Callback = function() Luna:Notification({Title = "Обновление", Content = "Последняя версия"}) end})
+generalSec:CreateButton({Name = "Unload Script", Callback = function() stopFastAttack(); stopESP(); Window:Destroy() end})
+generalSec:CreateToggle({Name = "Mobile Support", CurrentValue = UIS.TouchEnabled, Callback = function(v) print("[Settings] Mobile:", v) end})
 
 -- ============================================
--- ГОРЯЧАЯ КЛАВИША
+-- ГОРЯЧАЯ КЛАВИША (правая клавиша Ctrl)
 -- ============================================
 local mainFrame = nil
 local shadowHolder = nil
@@ -611,40 +683,15 @@ if not mainFrame then
     findLunaWindow()
 end
 
--- Отключаем встроенный бинд
+-- Отключаем встроенный бинд и устанавливаем RightControl
 pcall(function()
     if Window._bindConnection then
         Window._bindConnection:Disconnect()
     end
-    Window.Bind = Enum.KeyCode.Unknown
+    Window.Bind = Enum.KeyCode.RightControl
 end)
 
-local function updateKeybind()
-    if _G.__keyConnection then
-        _G.__keyConnection:Disconnect()
-    end
-    
-    local currentBind = state.window_bind
-    
-    _G.__keyConnection = UIS.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        local keyName = tostring(input.KeyCode):gsub("Enum.KeyCode.", "")
-        
-        if keyName == currentBind then
-            visible = not visible
-            if mainFrame then
-                mainFrame.Visible = visible
-                if shadowHolder then
-                    shadowHolder.Visible = visible
-                end
-            end
-        end
-    end)
-end
-
-updateKeybind()
-
--- Показываем интерфейс
+-- Включаем размытие только когда интерфейс открыт
 task.wait(0.5)
 if mainFrame then
     mainFrame.Visible = true
@@ -656,10 +703,10 @@ end
 -- Уведомление
 Luna:Notification({
     Title = "Abyss Hub",
-    Content = "Скрипт загружен! Клавиша: " .. state.window_bind,
+    Content = "Скрипт загружен! Клавиша: Right Control",
     Icon = "sparkle",
     ImageSource = "Material",
     Duration = 3
 })
 
-print("Abyss Hub загружен! Клавиша открытия:", state.window_bind)
+print("Abyss Hub загружен! Клавиша: Right Control")
