@@ -1,6 +1,6 @@
 --[[
     Abyss Hub
-    Версия: 1.0 (Starlight UI)
+    Версия: 1.0 (исправленный скроллинг)
 ]]
 
 -- Проверка игры
@@ -23,11 +23,11 @@ if not Starlight then
     return
 end
 
--- Создание окна
+-- Создание окна (увеличиваем высоту)
 local Window = Starlight:CreateWindow({
     Title = "Abyss Hub",
     Subtitle = "Blox Fruits",
-    Size = UDim2.new(0, 600, 0, 550),
+    Size = UDim2.new(0, 650, 0, 700),  -- Увеличил высоту
     Theme = "Starlight"
 })
 
@@ -35,17 +35,17 @@ local Window = Starlight:CreateWindow({
 local MainSection = Window:CreateTabSection("Главная", true)
 
 -- ============================================
--- ВКЛАДКА ФАРМ
+-- ВКЛАДКА ФАРМ (все группы)
 -- ============================================
 local FarmTab = MainSection:CreateTab({Name = "Фарм", Columns = 1, Icon = 6031097225}, "farm")
 
--- Auto Farm
+-- Группа 1: Auto Farm
 local Group1 = FarmTab:CreateGroupbox({Name = "Auto Farm", Column = 1, Style = 1}, "farm_group")
 Group1:CreateToggle({Name = "Auto Farm (Уровень)", CurrentValue = false, Callback = function(s) print("[Farm] Level:", s) end}, "farm_level")
 Group1:CreateToggle({Name = "Auto Farm (Ближайшие)", CurrentValue = false, Callback = function(s) print("[Farm] Nearby:", s) end}, "farm_nearby")
 Group1:CreateDropdown({Name = "Оружие", Options = {"Фрукт", "Меч", "Ближний бой"}, CurrentOption = {"Меч"}, Callback = function(v) print("[Farm] Weapon:", v[1]) end}, "weapon")
 
--- Auto Farm Boss
+-- Группа 2: Auto Farm Boss
 local Group2 = FarmTab:CreateGroupbox({Name = "Auto Farm Boss", Column = 1, Style = 1}, "boss")
 Group2:CreateToggle({Name = "Auto Farm Boss", CurrentValue = false, Callback = function(s) print("[Boss]", s) end}, "boss_toggle")
 Group2:CreateDropdown({Name = "Выбор босса", Options = {"Diamond", "Thunder God", "Vice Admiral", "Awakened Ice Admiral"}, CurrentOption = {"Diamond"}, Callback = function(v) print("[Boss] Select:", v[1]) end}, "boss_select")
@@ -53,7 +53,7 @@ Group2:CreateDropdown({Name = "Оружие (босс)", Options = {"Фрукт"
 Group2:CreateToggle({Name = "Использовать Fast Attack", CurrentValue = true, Callback = function(s) print("[Boss] Fast Attack:", s) end}, "boss_fast")
 Group2:CreateDropdown({Name = "Способ передвижения", Options = {"Телепорт", "Бег"}, CurrentOption = {"Телепорт"}, Callback = function(v) print("[Boss] Move:", v[1]) end}, "boss_move")
 
--- Auto Mastery
+-- Группа 3: Auto Mastery
 local Group3 = FarmTab:CreateGroupbox({Name = "Auto Mastery", Column = 1, Style = 1}, "mastery")
 Group3:CreateToggle({Name = "Auto Mastery", CurrentValue = false, Callback = function(s) print("[Mastery]", s) end}, "mastery_toggle")
 Group3:CreateDropdown({Name = "Тип", Options = {"Фрукт", "Меч", "Ближний бой", "Оружие (Gun)"}, CurrentOption = {"Меч"}, Callback = function(v) print("[Mastery] Type:", v[1]) end}, "mastery_type")
@@ -63,18 +63,18 @@ Group3:CreateToggle({Name = "Использовать C", CurrentValue = false, 
 Group3:CreateToggle({Name = "Использовать V", CurrentValue = false, Callback = function(s) print("[Mastery] V:", s) end}, "skill_v")
 Group3:CreateToggle({Name = "Использовать F", CurrentValue = false, Callback = function(s) print("[Mastery] F:", s) end}, "skill_f")
 
--- Auto Fruit
+-- Группа 4: Auto Fruit
 local Group4 = FarmTab:CreateGroupbox({Name = "Auto Fruit", Column = 1, Style = 1}, "fruit")
 Group4:CreateToggle({Name = "Auto Fruit (Spawn)", CurrentValue = false, Callback = function(s) print("[Fruit] Spawn:", s) end}, "fruit_spawn")
 Group4:CreateToggle({Name = "Auto Fruit (Dealer)", CurrentValue = false, Callback = function(s) print("[Fruit] Dealer:", s) end}, "fruit_dealer")
 Group4:CreateToggle({Name = "Auto Store Fruit", CurrentValue = false, Callback = function(s) print("[Fruit] Store:", s) end}, "fruit_store")
 
--- Auto Chest
+-- Группа 5: Auto Chest
 local Group5 = FarmTab:CreateGroupbox({Name = "Auto Chest", Column = 1, Style = 1}, "chest")
 Group5:CreateToggle({Name = "Auto Chest", CurrentValue = false, Callback = function(s) print("[Chest]", s) end}, "chest_toggle")
 Group5:CreateDropdown({Name = "Режим", Options = {"Teleport Farm", "Tween Farm"}, CurrentOption = {"Teleport Farm"}, Callback = function(v) print("[Chest] Mode:", v[1]) end}, "chest_mode")
 
--- Другие функции
+-- Группа 6: Другие функции
 local Group6 = FarmTab:CreateGroupbox({Name = "Другие функции", Column = 1, Style = 1}, "other")
 Group6:CreateToggle({Name = "Auto Sea Beast", CurrentValue = false, Callback = function(s) print("[Sea Beast]", s) end}, "sea_beast")
 Group6:CreateToggle({Name = "Auto Elite Hunter", CurrentValue = false, Callback = function(s) print("[Elite Hunter]", s) end}, "elite")
@@ -82,14 +82,14 @@ Group6:CreateToggle({Name = "Auto Observation (Ken Haki)", CurrentValue = false,
 Group6:CreateToggle({Name = "Auto Factory", CurrentValue = false, Callback = function(s) print("[Factory]", s) end}, "factory")
 Group6:CreateToggle({Name = "Auto Mirage Island", CurrentValue = false, Callback = function(s) print("[Mirage]", s) end}, "mirage")
 
--- Auto Kitsune Island
+-- Группа 7: Auto Kitsune Island
 local Group7 = FarmTab:CreateGroupbox({Name = "Auto Kitsune Island", Column = 1, Style = 1}, "kitsune")
 Group7:CreateToggle({Name = "Авто-сбор Azure Embers", CurrentValue = false, Callback = function(s) print("[Kitsune] Collect:", s) end}, "embers_collect")
 Group7:CreateToggle({Name = "Сдавать Azure Embers", CurrentValue = false, Callback = function(s) print("[Kitsune] Trade:", s) end}, "embers_trade")
 Group7:CreateSlider({Name = "Количество для сдачи", Range = {0, 20}, CurrentValue = 10, Callback = function(v) print("[Kitsune] Amount:", v) end}, "embers_amount")
 
 -- ============================================
--- ТЕЛЕПОРТЫ
+-- ВКЛАДКА ТЕЛЕПОРТЫ
 -- ============================================
 local TeleportTab = MainSection:CreateTab({Name = "Телепорты", Columns = 1, Icon = 6031097225}, "teleport")
 local TeleportGroup = TeleportTab:CreateGroupbox({Name = "Телепорты", Column = 1, Style = 1}, "teleport_group")
@@ -101,7 +101,7 @@ TeleportGroup:CreateButton({Name = "Teleport to NPC", Callback = function() prin
 TeleportGroup:CreateButton({Name = "Hop to Server", Callback = function() print("[Teleport] Hop") end}, "hop")
 
 -- ============================================
--- PVP
+-- ВКЛАДКА PVP
 -- ============================================
 local PvPTab = MainSection:CreateTab({Name = "PvP", Columns = 1, Icon = 6031097225}, "pvp")
 local PvPGroup = PvPTab:CreateGroupbox({Name = "PvP Functions", Column = 1, Style = 1}, "pvp")
@@ -122,7 +122,7 @@ SilentGroup:CreateSlider({Name = "Макс. дистанция", Range = {0, 500
 PvPGroup:CreateToggle({Name = "Enable PvP Mode", CurrentValue = false, Callback = function(s) print("[PvP] PvP Mode:", s) end}, "pvp_mode")
 
 -- ============================================
--- ESP
+-- ВКЛАДКА ESP
 -- ============================================
 local ESPTab = MainSection:CreateTab({Name = "ESP", Columns = 1, Icon = 6031097225}, "esp")
 local ESPGroup = ESPTab:CreateGroupbox({Name = "ESP Functions", Column = 1, Style = 1}, "esp")
@@ -135,7 +135,7 @@ ESPGroup:CreateToggle({Name = "Flower ESP", CurrentValue = false, Callback = fun
 ESPGroup:CreateDropdown({Name = "Fruit Rarity Filter", Options = {"Все", "Rare+", "Legendary+", "Mythical"}, CurrentOption = {"Все"}, Callback = function(v) print("[ESP] Filter:", v[1]) end}, "fruit_filter")
 
 -- ============================================
--- RAID
+-- ВКЛАДКА RAID
 -- ============================================
 local RaidTab = MainSection:CreateTab({Name = "Raid", Columns = 1, Icon = 6031097225}, "raid")
 local RaidGroup = RaidTab:CreateGroupbox({Name = "Auto Raid", Column = 1, Style = 1}, "raid")
@@ -148,7 +148,7 @@ RaidGroup:CreateSlider({Name = "Макс. цена фрукта (Beli)", Range =
 RaidTab:CreateToggle({Name = "Kill Aura (5 остров рейда)", CurrentValue = false, Callback = function(s) print("[Raid] Kill Aura:", s) end}, "kill_aura")
 
 -- ============================================
--- НАСТРОЙКИ
+-- ВКЛАДКА НАСТРОЙКИ
 -- ============================================
 local SettingsTab = MainSection:CreateTab({Name = "Настройки", Columns = 1, Icon = 6031097225}, "settings")
 local ConfigGroup = SettingsTab:CreateGroupbox({Name = "Конфигурации", Column = 1, Style = 1}, "config")
@@ -165,5 +165,5 @@ SettingsGroup:CreateToggle({Name = "Mobile Support", CurrentValue = game:GetServ
 SettingsGroup:CreateButton({Name = "Настройка цветов", Callback = function() print("[Settings] Colors") end}, "colors")
 
 -- Уведомление
-Window:Notify("Abyss Hub", "Скрипт успешно загружен! Прокрутите вкладки вниз.", 4)
-print("Abyss Hub загружен! Прокрутите вкладки вниз, чтобы увидеть все функции.")
+Window:Notify("Abyss Hub", "Скрипт загружен! Прокрутите вниз.", 4)
+print("Abyss Hub загружен! Прокрутите вниз во вкладке Фарм, чтобы увидеть все функции.")
