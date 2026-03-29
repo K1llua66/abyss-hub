@@ -12,6 +12,10 @@ end
 -- Загрузка модулей
 local ESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/main/Libs/ESP.lua"))()
 local FastAttack = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/main/Libs/FastAttack.lua"))()
+if not FastAttack then 
+    -- Фолбэк если модуль не загрузился
+    FastAttack = { Start = function() end, Stop = function() end }
+end
 local Player = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/main/Libs/Player.lua"))()
 local Teleport = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/main/Libs/Teleport.lua"))()
 
