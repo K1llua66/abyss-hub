@@ -1,6 +1,5 @@
 --[[
     Abyss Hub
-    Основа: Starlight Interface Suite
     Версия: 1.0
 ]]
 
@@ -25,29 +24,25 @@ if not isValid then
     return
 end
 
--- 🔧 ЗАГРУЗКА STARLIGHT UI (с альтернативными ссылками)
+-- 🔧 ЗАГРУЗКА STARLIGHT UI
 local Starlight = nil
-local urls = {
-    "https://raw.githubusercontent.com/Nebula-Softworks/Starlight-Interface-Suite/main/Source.lua",
-    "https://raw.githubusercontent.com/Nebula-Softworks/Starlight-Interface-Suite/refs/heads/main/Source.lua",
-}
+local success, result = pcall(function()
+    return game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Starlight-Interface-Suite/main/Source.lua")
+end)
 
-for _, url in ipairs(urls) do
-    local success, result = pcall(function()
-        return game:HttpGet(url)
-    end)
-    if success and result then
-        local func, err = loadstring(result)
-        if func then
-            Starlight = func()
-            if Starlight then break end
-        end
+if success and result then
+    local func, err = loadstring(result)
+    if func then
+        Starlight = func()
+    else
+        warn("Ошибка компиляции Starlight UI:", err)
     end
-    wait(0.5)
+else
+    warn("Не удалось загрузить Starlight UI:", success, result)
 end
 
 if not Starlight then
-    game:GetService("Players").LocalPlayer:Kick("❌ Не удалось загрузить Starlight UI. Проверьте интернет-соединение.")
+    game:GetService("Players").LocalPlayer:Kick("❌ Не удалось загрузить Starlight UI. Проверьте интернет-соединение и попробуйте снова.")
     return
 end
 
