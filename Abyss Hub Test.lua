@@ -1,68 +1,79 @@
--- Минимальный тест Starlight UI
+-- Abyss Hub на Rayfield (рабочая версия)
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
 
--- Загрузка Starlight
-local Starlight = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/refs/heads/main/Starlight%20UI.lua"))()
-
-if not Starlight then
-    warn("Starlight не загрузился")
+-- Проверка игры
+local gameId = game.PlaceId
+local validIds = {2753915549, 4442272183, 7449423635}
+local isValid = false
+for _, id in ipairs(validIds) do
+    if gameId == id then isValid = true break end
+end
+if not isValid then
+    game:GetService("Players").LocalPlayer:Kick("❌ Abyss Hub работает только в Blox Fruits!")
     return
 end
 
-print("Starlight загружен, создаём окно...")
-
 -- Создание окна
-local Window = Starlight:CreateWindow({
-    Title = "TEST WINDOW",
-    Subtitle = "If you see this, Starlight works",
-    Size = UDim2.new(0, 500, 0, 400),
-    Theme = "Starlight"
+local Window = Rayfield:CreateWindow({
+    Name = "Abyss Hub",
+    Icon = 0,
+    LoadingTitle = "Abyss Hub",
+    LoadingSubtitle = "by Me",
+    Theme = "Dark",
+    ConfigurationSaving = {
+        Enabled = false
+    }
 })
 
-print("Окно создано, создаём секцию...")
+-- Вкладка Фарм
+local FarmTab = Window:CreateTab("Фарм", 0)
 
--- Создаём секцию вкладок (ОБЯЗАТЕЛЬНО)
-local MainSection = Window:CreateTabSection("Main", true)
+-- Секция
+local FarmSection = FarmTab:CreateSection("Auto Farm")
 
-print("Секция создана, создаём вкладку...")
-
--- Создаём одну вкладку
-local TestTab = MainSection:CreateTab({
-    Name = "TEST",
-    Columns = 1
-}, "test_tab")
-
-print("Вкладка создана, создаём группу...")
-
--- Создаём группу
-local TestGroup = TestTab:CreateGroupbox({
-    Name = "Test Group",
-    Column = 1
-}, "test_group")
-
-print("Группа создана, добавляем кнопку...")
-
--- Добавляем кнопку
-TestGroup:CreateButton({
-    Name = "CLICK ME",
+-- Кнопка
+FarmTab:CreateButton({
+    Name = "Test Button",
     Callback = function()
-        print("BUTTON CLICKED!")
-        Window:Notify("Test", "Button clicked!", 2)
+        print("Button clicked!")
     end
-}, "test_btn")
+})
 
-print("Кнопка добавлена, добавляем тоггл...")
-
--- Добавляем тоггл
-TestGroup:CreateToggle({
-    Name = "Test Toggle",
+-- Тоггл
+FarmTab:CreateToggle({
+    Name = "Auto Farm (Level)",
     CurrentValue = false,
-    Callback = function(state)
-        print("Toggle state:", state)
+    Callback = function(Value)
+        print("Auto Farm Level:", Value)
     end
-}, "test_toggle")
+})
 
-print("Тоггл добавлен!")
+-- Дропдаун
+FarmTab:CreateDropdown({
+    Name = "Weapon",
+    Options = {"Fruit", "Sword", "Melee"},
+    CurrentOption = {"Sword"},
+    Callback = function(Option)
+        print("Weapon:", Option)
+    end
+})
+
+-- Слайдер
+FarmTab:CreateSlider({
+    Name = "Speed",
+    Range = {1, 10},
+    Increment = 1,
+    CurrentValue = 1,
+    Callback = function(Value)
+        print("Speed:", Value)
+    end
+})
 
 -- Уведомление
-Window:Notify("Abyss Hub", "Тестовое окно загружено!", 3)
-print("Тест завершён, интерфейс должен появиться")
+Rayfield:Notify({
+    Title = "Abyss Hub",
+    Content = "Скрипт загружен!",
+    Duration = 3
+})
+
+print("Abyss Hub загружен (Rayfield)")
