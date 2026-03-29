@@ -644,16 +644,338 @@ TeleportSection:CreateButton({Name = "Teleport to 3rd Sea", Callback = function(
 
 local PvPSection = PvPTab:CreateSection("PvP Functions")
 
-PvPSection:CreateToggle({
-    Name = "Fast Attack (авто-атака)",
-    Description = "Автоматически атакует врагов",
-    CurrentValue = true,
-    Callback = function(v)
-        state.fast_attack = v
-        updateFastAttack()
-        Luna:Notification({Title = "Fast Attack", Content = v and "Включена" or "Выключена"})
+-- ============================================
+-- FAST ATTACK (универсальная версия)
+-- ============================================
+
+local fastAttackRunning = false
+local fastAttackTask = nil
+local attackRemote = nil
+local attackMethod = nil -- "remote", "click", "keypress"
+
+-- Поиск всех возможных RemoteEvent для атаки
+local function findAttackRemote()
+    print("[Fast Attack] Поиск RemoteEvent для атаки...")
+    
+    -- Список возможных имён Remote для атаки
+    local possibleNames = {
+        "AttackEvent", "Attack", "Combat", "CombatEvent", "UseSkill",
+        "SwordAttack", "FruitAttack", "MeleeAttack", "Click", "Damage"
+    }
+    
+    -- Поиск в ReplicatedStorage
+    local remotes = ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage
+    
+    for _, name in ipairs(possibleNames) do
+        local remote = remotes:FindFirstChild(name)
+        if remote and remote:IsA("RemoteEvent") then
+            attackRemote = remote
+            attackMethod = "remote"
+            print("[Fast Attack] Найден Remote:", name)
+            return true
+        end
+    end
+    
+    -- Поиск по всем RemoteEvent в ReplicatedStorage
+    for _, remote in ipairs(remotes:GetDescendants()) do
+        if remote:IsA("RemoteEvent") then
+            local remoteName = remote.Name:lower()
+            for _, keyword in ipairs({"attack", "combat", "damage", "click"}) do
+                if remoteName:find(keyword) then
+                    attackRemote = remote
+                    attackMethod = "remote"
+                    print("[Fast Attack] Найден Remote (по ключу):", remote.Name)
+                    return true
+                end
+            end
+        end
+    end
+    
+    -- Поиск в Players.LocalPlayer.PlayerGui (иногда там есть интерфейсные события)
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        for _, gui in ipairs(playerGui:GetDescendants()) do
+            if gui:IsA("TextButton") or gui:IsA("ImageButton") then
+                if gui.Name:lower():find("attack") or gui.Name:lower():find("click") then
+                    attackMethod = "click"
+                    print("[Fast Attack] Найден UI элемент для атаки:", gui.Name)
+                    return true
+                end
+            end
+        end
+    end
+    
+    print("[Fast Attack] Remote не найден, используем эмуляцию клика")
+    attackMethod = "click"
+    return false
+end
+
+-- Функция для эмуляции нажатия клавиши
+local function simulateKeyPress(key)
+    local VirtualInput = game:GetService("VirtualInputManager")
+    pcall(function()
+        VirtualInput:SendKeyEvent(true, key, false, game)
+        task.wait(0.05)
+        VirtualInput:SendKeyEvent(false, key, false, game)
+    end)
+end
+
+-- Функция для эмуляции клика мыши
+local function simulateClick()
+    local VirtualInput = game:GetService("VirtualInputManager")
+    pcall(function()
+        -- Клик левой кнопкой мыши
+        VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        task.wait(0.05)
+        VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    end)
+end
+
+-- Поиск кнопки атаки в UI
+local function findAttackButton()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return nil end
+    
+    for _, gui in ipairs(playerGui:GetDescendants()) do
+        if (gui:IsA("TextButton") or gui:IsA("ImageButton")) then
+            local name = gui.Name:lower()
+            if name:find("attack") or name:find("click") or name:find("swing") or name:find("hit") then
+                return gui
+            end
+        end
+    end
+    return nil
+end
+
+-- Атака цели
+local function attackTarget(target)
+    if not target or not playerRoot then return false end
+    
+    -- Поворачиваемся к цели
+    local targetRoot = target:FindFirstChild("HumanoidRootPart")
+    if targetRoot then
+        playerRoot.CFrame = CFrame.new(playerRoot.Position, targetRoot.Position)
+    end
+    
+    local success = false
+    
+    -- Метод 1: Отправка RemoteEvent
+    if attackMethod == "remote" and attackRemote then
+        pcall(function()
+            attackRemote:FireServer(target)
+            success = true
+        end)
+    end
+    
+    -- Метод 2: Клик по кнопке в UI
+    if not success then
+        local attackButton = findAttackButton()
+        if attackButton then
+            pcall(function()
+                attackButton:Fire()
+                success = true
+            end)
+        end
+    end
+    
+    -- Метод 3: Эмуляция клика мыши
+    if not success then
+        pcall(function()
+            simulateClick()
+            success = true
+        end)
+    end
+    
+    -- Метод 4: Эмуляция клавиши (для некоторых экзекуторов)
+    if not success and VirtualUser then
+        pcall(function()
+            VirtualUser:ClickButton1()
+            success = true
+        end)
+    end
+    
+    -- Метод 5: Эмуляция клавиши Q (иногда атака на Q)
+    if not success then
+        pcall(function()
+            simulateKeyPress(Enum.KeyCode.Q)
+            success = true
+        end)
+    end
+    
+    return success
+end
+
+-- Поиск ближайшей цели с учётом дистанции
+local function getNearestTarget(maxDistance)
+    if not playerRoot then return nil end
+    
+    local nearest = nil
+    local nearestDist = maxDistance or 25
+    
+    -- Поиск NPC в workspace.Enemies
+    local enemies = workspace:FindFirstChild("Enemies")
+    if enemies then
+        for _, npc in ipairs(enemies:GetChildren()) do
+            if npc:IsA("Model") and npc:FindFirstChild("Humanoid") then
+                local humanoid = npc.Humanoid
+                if humanoid.Health > 0 then
+                    local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+                    if npcRoot then
+                        local dist = (playerRoot.Position - npcRoot.Position).Magnitude
+                        if dist < nearestDist then
+                            nearestDist = dist
+                            nearest = npc
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Поиск NPC в workspace (общий поиск)
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(obj) then
+            local humanoid = obj.Humanoid
+            if humanoid.Health > 0 then
+                local objRoot = obj:FindFirstChild("HumanoidRootPart")
+                if objRoot then
+                    local dist = (playerRoot.Position - objRoot.Position).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearest = obj
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Поиск игроков (если PvP режим)
+    if state.pvp_mode then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                local char = plr.Character
+                if char and char:FindFirstChild("Humanoid") then
+                    local humanoid = char.Humanoid
+                    if humanoid.Health > 0 then
+                        local charRoot = char:FindFirstChild("HumanoidRootPart")
+                        if charRoot then
+                            local dist = (playerRoot.Position - charRoot.Position).Magnitude
+                            if dist < nearestDist then
+                                nearestDist = dist
+                                nearest = char
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return nearest, nearestDist
+end
+
+-- Основной цикл Fast Attack
+local function fastAttackLoop()
+    print("[Fast Attack] Цикл запущен, метод:", attackMethod or "unknown")
+    
+    while fastAttackRunning do
+        if state.fast_attack and playerRoot then
+            local target, distance = getNearestTarget(20)
+            
+            if target then
+                local success = attackTarget(target)
+                if success then
+                    -- Если атака успешна, небольшой визуальный фидбек
+                    local targetRoot = target:FindFirstChild("HumanoidRootPart")
+                    if targetRoot then
+                        -- Опционально: создаём эффект частиц или звук
+                    end
+                end
+            end
+        end
+        task.wait(0.25) -- 0.25 сек между атаками
+    end
+end
+
+-- Запуск/остановка Fast Attack
+local function updateFastAttack()
+    if state.fast_attack and not fastAttackRunning then
+        fastAttackRunning = true
+        fastAttackTask = task.spawn(fastAttackLoop)
+        print("[Fast Attack] Включена")
+        Luna:Notification({Title = "Fast Attack", Content = "Включена", Duration = 1})
+    elseif not state.fast_attack and fastAttackRunning then
+        fastAttackRunning = false
+        if fastAttackTask then
+            task.cancel(fastAttackTask)
+            fastAttackTask = nil
+        end
+        print("[Fast Attack] Выключена")
+        Luna:Notification({Title = "Fast Attack", Content = "Выключена", Duration = 1})
+    end
+end
+
+-- Поиск Remote при загрузке
+task.spawn(function()
+    task.wait(2) -- Ждём загрузки игры
+    findAttackRemote()
+end)
+
+-- Добавляем возможность принудительного поиска через консоль
+_G.FindAttackRemote = findAttackRemote
+_G.AttackNow = function()
+    local target = getNearestTarget(20)
+    if target then
+        attackTarget(target)
+        print("[Fast Attack] Принудительная атака на:", target.Name)
+    else
+        print("[Fast Attack] Цель не найдена")
+    end
+    -- Диагностическая кнопка для Fast Attack
+local DiagSection = PvPTab:CreateSection("Диагностика")
+DiagSection:CreateButton({
+    Name = "Найти Remote атаки",
+    Description = "Принудительный поиск RemoteEvent для атаки",
+    Callback = function()
+        local found = findAttackRemote()
+        if found then
+            Luna:Notification({
+                Title = "Fast Attack", 
+                Content = "Найден Remote: " .. (attackRemote and attackRemote.Name or "UI кнопка"), 
+                Duration = 2
+            })
+        else
+            Luna:Notification({
+                Title = "Fast Attack", 
+                Content = "Remote не найден, используется эмуляция клика", 
+                Duration = 2
+            })
+        end
     end
 })
+
+DiagSection:CreateButton({
+    Name = "Тестовая атака",
+    Description = "Попробовать атаковать ближайшего врага",
+    Callback = function()
+        local target, dist = getNearestTarget(20)
+        if target then
+            local success = attackTarget(target)
+            Luna:Notification({
+                Title = "Тест атаки", 
+                Content = success and "Атака выполнена на " .. target.Name or "Ошибка атаки", 
+                Duration = 2
+            })
+        else
+            Luna:Notification({
+                Title = "Тест атаки", 
+                Content = "Нет целей в радиусе 20", 
+                Duration = 2
+            })
+        end
+    end
+})
+end
 
 PvPSection:CreateToggle({Name = "Anti-Stun", CurrentValue = false, Callback = function(v) state.anti_stun = v; updateAntiStun() end})
 PvPSection:CreateToggle({Name = "Infinite Energy", CurrentValue = false, Callback = function(v) state.infinite_energy = v; updateInfiniteEnergy() end})
@@ -784,11 +1106,16 @@ local keyOptions = {"RightShift", "LeftShift", "RightControl", "LeftControl", "K
 local keyDropdown = GeneralSection:CreateDropdown({
     Name = "Клавиша открытия",
     Options = keyOptions,
-    CurrentOption = "RightShift",
+    CurrentOption = "RightControl",
     Callback = function(opt)
         state.window_bind = opt
         print("[Settings] Bind changed to:", opt)
         updateKeybind()
+        Luna:Notification({
+            Title = "Настройки", 
+            Content = "Клавиша изменена на " .. opt, 
+            Duration = 1
+        })
     end
 })
 
@@ -804,12 +1131,24 @@ GeneralSection:CreateToggle({Name = "Mobile Support", CurrentValue = UserInputSe
 GeneralSection:CreateButton({Name = "Настройка цветов", Callback = function() Luna:Notification({Title = "Цвета", Content = "В разработке"}) end})
 
 -- ============================================
--- ГОРЯЧАЯ КЛАВИША
+-- ГОРЯЧАЯ КЛАВИША (полностью исправленная)
 -- ============================================
 
 local mainFrame = nil
 local shadowHolder = nil
+local blurEffect = nil
 
+-- Поиск размытия (DepthOfField эффект)
+local function findBlurEffect()
+    for _, effect in ipairs(game:GetService("Lighting"):GetChildren()) do
+        if effect:IsA("DepthOfFieldEffect") and effect.Name:find("DPT_") then
+            blurEffect = effect
+            break
+        end
+    end
+end
+
+-- Поиск окна Luna UI
 local function findLunaWindow()
     local parent = gethui and gethui() or game:GetService("CoreGui")
     for _, gui in ipairs(parent:GetChildren()) do
@@ -817,6 +1156,7 @@ local function findLunaWindow()
             if gui:FindFirstChild("SmartWindow") then
                 mainFrame = gui.SmartWindow
                 shadowHolder = gui:FindFirstChild("ShadowHolder")
+                findBlurEffect()
                 return true
             end
         end
@@ -831,27 +1171,71 @@ if not mainFrame then
     findLunaWindow()
 end
 
+-- Функции управления видимостью
+local function hideInterface()
+    if mainFrame then
+        mainFrame.Visible = false
+        if shadowHolder then
+            shadowHolder.Visible = false
+        end
+    end
+    -- Отключаем размытие
+    if blurEffect then
+        blurEffect.Enabled = false
+    end
+end
+
+local function showInterface()
+    if mainFrame then
+        mainFrame.Visible = true
+        if shadowHolder then
+            shadowHolder.Visible = true
+        end
+    end
+    -- Включаем размытие только если интерфейс виден
+    if blurEffect and mainFrame and mainFrame.Visible then
+        blurEffect.Enabled = true
+    end
+end
+
+-- Переопределяем BlurModule, чтобы предотвратить создание новых эффектов
+pcall(function()
+    _G.BlurModule = function() end
+end)
+
+-- Сохраняем текущий бинд
+local currentBind = state.window_bind
+
+-- Функция обновления клавиши
 local function updateKeybind()
     if _G.__keyConnection then
         _G.__keyConnection:Disconnect()
         _G.__keyConnection = nil
     end
     
+    currentBind = state.window_bind
     local isVisible = true
     
     _G.__keyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
-        local key = string.split(tostring(input.KeyCode), ".")[3] or ""
-        if key == state.window_bind then
+        
+        local keyName = string.split(tostring(input.KeyCode), ".")[3] or ""
+        
+        if keyName == currentBind then
             isVisible = not isVisible
-            if mainFrame then
-                mainFrame.Visible = isVisible
-                if shadowHolder then
-                    shadowHolder.Visible = isVisible
-                end
+            
+            if isVisible then
+                showInterface()
                 Luna:Notification({
                     Title = "Abyss Hub", 
-                    Content = isVisible and "Интерфейс открыт" or "Интерфейс скрыт", 
+                    Content = "Интерфейс открыт", 
+                    Duration = 1
+                })
+            else
+                hideInterface()
+                Luna:Notification({
+                    Title = "Abyss Hub", 
+                    Content = "Интерфейс скрыт", 
                     Duration = 1
                 })
             end
@@ -870,10 +1254,16 @@ end)
 -- Запускаем обработчик
 updateKeybind()
 
--- Убираем размытие
-pcall(function()
-    _G.BlurModule = function() end
-end)
+-- Отключаем все существующие эффекты размытия
+for _, effect in ipairs(game:GetService("Lighting"):GetChildren()) do
+    if effect:IsA("DepthOfFieldEffect") then
+        effect.Enabled = false
+    end
+end
+
+-- При загрузке показываем интерфейс
+task.wait(0.5)
+showInterface()
 
 -- Запускаем Fast Attack по умолчанию
 updateFastAttack()
