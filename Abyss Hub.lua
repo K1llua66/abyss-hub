@@ -1,158 +1,102 @@
---[[
-    Abyss Hub v4.0 - Полностью автономная версия
-    Без внешних зависимостей
-]]
+-- Abyss Hub v4.0 - Максимально упрощенная версия
 
--- Проверка игры
-if not table.find({2753915549,4442272183,7449423635}, game.PlaceId) then
-    return game:GetService("Players").LocalPlayer:Kick("❌ Abyss Hub только для Blox Fruits!")
+-- Отключаем ошибки
+local oldPrint = print
+print = function() end
+
+-- Проверяем game
+if not game then return end
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Проверка игры (упрощенная)
+local placeId = game.PlaceId
+if placeId ~= 2753915549 and placeId ~= 4442272183 and placeId ~= 7449423635 then
+    LocalPlayer:Kick("❌ Abyss Hub только для Blox Fruits!")
+    return
 end
 
--- ============================================
--- FAST ATTACK МОДУЛЬ (ВСТРОЕННЫЙ)
--- ============================================
-local FastAttack = {
-    Active = false,
-    PvPMode = false,
-    CurrentTarget = nil,
-    Loop = nil,
-    CanAttack = true,
-    AttackSpeed = 0.12,
-}
+print("✅ Abyss Hub загружается...")
 
--- Отправка M1 атаки
+-- ============================================
+-- FAST ATTACK (Максимально упрощенный)
+-- ============================================
+local FastAttackActive = false
+local PvPMode = false
+local CanAttack = true
+
 local function SendM1()
-    if not FastAttack.CanAttack then return end
+    if not CanAttack then return end
     
-    local player = game.Players.LocalPlayer
-    if not player.Character then return end
-    
-    -- Пробуем разные способы отправки атаки
+    -- Самый простой способ - через Remote
     local success = false
-    
-    -- Способ 1: Remote
-    local replicatedStorage = game:GetService("ReplicatedStorage")
-    local remotes = replicatedStorage:FindFirstChild("Remotes")
+    local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
     
     if remotes then
-        local attackRemote = remotes:FindFirstChild("Attack")
-        if attackRemote then
-            pcall(function()
-                attackRemote:FireServer()
-                success = true
-            end)
+        local attack = remotes:FindFirstChild("Attack")
+        if attack then
+            pcall(function() attack:FireServer() success = true end)
         end
-        
-        if not success then
-            local combatRemote = remotes:FindFirstChild("Combat")
-            if combatRemote then
-                pcall(function()
-                    combatRemote:FireServer("M1")
-                    success = true
-                end)
-            end
-        end
-    end
-    
-    -- Способ 2: Через мышь
-    if not success then
-        pcall(function()
-            local mouse = player:GetMouse()
-            if mouse then
-                local b1d = mouse.Button1Down
-                local b1u = mouse.Button1Up
-                if b1d and b1u then
-                    b1d:Fire()
-                    task.wait(0.05)
-                    b1u:Fire()
-                    success = true
-                end
-            end
-        end)
     end
     
     if success then
-        FastAttack.CanAttack = false
-        task.delay(FastAttack.AttackSpeed, function()
-            FastAttack.CanAttack = true
-        end)
+        CanAttack = false
+        task.wait(0.15)
+        CanAttack = true
     end
 end
 
--- Поиск цели
 local function FindTarget()
-    local player = game.Players.LocalPlayer
-    local character = player.Character
-    if not character then return nil end
+    local char = LocalPlayer.Character
+    if not char then return nil end
     
-    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
     
-    local closestTarget = nil
-    local closestDist = 25
+    local bestTarget = nil
+    local bestDist = 25
     
     -- Поиск мобов
-    if not FastAttack.PvPMode then
+    if not PvPMode then
         local enemies = workspace:FindFirstChild("Enemies")
         if enemies then
             for _, enemy in pairs(enemies:GetChildren()) do
-                local hrp2 = enemy:FindFirstChild("HumanoidRootPart")
+                local ehrp = enemy:FindFirstChild("HumanoidRootPart")
                 local hum = enemy:FindFirstChild("Humanoid")
-                if hrp2 and hum and hum.Health > 0 then
-                    local dist = (hrp.Position - hrp2.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestTarget = enemy
+                if ehrp and hum and hum.Health > 0 then
+                    local dist = (hrp.Position - ehrp.Position).Magnitude
+                    if dist < bestDist then
+                        bestDist = dist
+                        bestTarget = enemy
                     end
                 end
             end
         end
     end
     
-    -- Поиск игроков
-    if FastAttack.PvPMode then
-        for _, otherPlayer in pairs(game.Players:GetPlayers()) do
-            if otherPlayer ~= player and otherPlayer.Character then
-                local otherChar = otherPlayer.Character
-                local hrp2 = otherChar:FindFirstChild("HumanoidRootPart")
-                local hum = otherChar:FindFirstChild("Humanoid")
-                if hrp2 and hum and hum.Health > 0 then
-                    local dist = (hrp.Position - hrp2.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestTarget = otherChar
-                    end
-                end
-            end
-        end
-    end
-    
-    return closestTarget
+    return bestTarget
 end
 
--- Поворот к цели
 local function LookAt(target)
-    local character = game.Players.LocalPlayer.Character
-    if not character then return end
-    
-    local hrp = character:FindFirstChild("HumanoidRootPart")
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    
-    local targetHrp = target:FindFirstChild("HumanoidRootPart")
-    if targetHrp then
-        local newCFrame = CFrame.new(hrp.Position, targetHrp.Position)
-        hrp.CFrame = newCFrame
+    local thrp = target:FindFirstChild("HumanoidRootPart")
+    if thrp then
+        hrp.CFrame = CFrame.new(hrp.Position, thrp.Position)
     end
 end
 
-function FastAttack:Start()
-    if self.Loop then self:Stop() end
-    self.Active = true
-    
-    self.Loop = game:GetService("RunService").Heartbeat:Connect(function()
-        if not self.Active then return end
-        
-        local target = self.CurrentTarget or FindTarget()
+local FastAttackLoop = nil
+
+local function StartFastAttack()
+    if FastAttackLoop then return end
+    FastAttackActive = true
+    FastAttackLoop = game:GetService("RunService").Heartbeat:Connect(function()
+        if not FastAttackActive then return end
+        local target = FindTarget()
         if target then
             LookAt(target)
             SendM1()
@@ -160,267 +104,239 @@ function FastAttack:Start()
     end)
 end
 
-function FastAttack:Stop()
-    self.Active = false
-    if self.Loop then
-        self.Loop:Disconnect()
-        self.Loop = nil
+local function StopFastAttack()
+    FastAttackActive = false
+    if FastAttackLoop then
+        FastAttackLoop:Disconnect()
+        FastAttackLoop = nil
     end
 end
 
-function FastAttack:SetTarget(target)
-    self.CurrentTarget = target
-end
-
 -- ============================================
--- ESP МОДУЛЬ (УПРОЩЕННЫЙ)
+-- SPEED & JUMP
 -- ============================================
-local ESP = {
-    Active = false,
-    Objects = {Fruits = false, Players = false, NPC = false, Chests = false},
-    Drawings = {}
-}
+local SpeedEnabled = false
+local JumpEnabled = false
+local SpeedMult = 1
+local JumpMult = 1
 
-function ESP:Start()
-    if self.Active then return end
-    self.Active = true
-    -- Базовая ESP (можно расширить позже)
-    print("ESP активирован")
-end
-
-function ESP:Stop()
-    self.Active = false
-    for _, drawing in pairs(self.Drawings) do
-        pcall(function() drawing:Remove() end)
-    end
-    self.Drawings = {}
-end
-
--- ============================================
--- PLAYER МОДУЛЬ (УПРОЩЕННЫЙ)
--- ============================================
-local Player = {
-    SpeedEnabled = false,
-    JumpEnabled = false,
-    OriginalSpeed = 16,
-    OriginalJump = 50
-}
-
-function Player:Update()
-    local char = game.Players.LocalPlayer.Character
+local function UpdateMovement()
+    local char = LocalPlayer.Character
     if not char then return end
-    
     local hum = char:FindFirstChild("Humanoid")
     if not hum then return end
     
-    if self.SpeedEnabled then
-        hum.WalkSpeed = self.OriginalSpeed * (self.SpeedMultiplier or 1)
+    if SpeedEnabled then
+        hum.WalkSpeed = 16 * SpeedMult
     else
-        hum.WalkSpeed = self.OriginalSpeed
+        hum.WalkSpeed = 16
     end
     
-    if self.JumpEnabled then
-        hum.JumpPower = self.OriginalJump * (self.JumpMultiplier or 1)
+    if JumpEnabled then
+        hum.JumpPower = 50 * JumpMult
     else
-        hum.JumpPower = self.OriginalJump
+        hum.JumpPower = 50
     end
 end
 
-function Player:SetSpeed(mult)
-    self.SpeedMultiplier = mult
-    self:Update()
-end
-
-function Player:SetJump(mult)
-    self.JumpMultiplier = mult
-    self:Update()
-end
-
 -- ============================================
--- TELEPORT МОДУЛЬ (УПРОЩЕННЫЙ)
+-- TELEPORT
 -- ============================================
-local Teleport = {
-    Coords = {
-        Sea1 = Vector3.new(-1175, 25, 1450),
-        Sea2 = Vector3.new(-2550, 25, -4050),
-        Sea3 = Vector3.new(1175, 25, 14575),
-        PirateStarter = Vector3.new(-1125, 25, 1400),
-        MarineStarter = Vector3.new(-1200, 25, 1300),
-        Jungle = Vector3.new(-1450, 35, 950),
-        Desert = Vector3.new(-900, 25, 1750),
-        SkyIslands = Vector3.new(100, 250, 500),
-        KingdomRose = Vector3.new(-2750, 25, -3750),
-        PortTown = Vector3.new(-2350, 25, -4250)
-    }
-}
-
-function Teleport.Teleport(pos)
-    local char = game.Players.LocalPlayer.Character
+local function Teleport(pos)
+    local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         char.HumanoidRootPart.CFrame = CFrame.new(pos)
     end
 end
 
--- ============================================
--- LUNA UI (ЗАГРУЗКА)
--- ============================================
-local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/main/Luna%20UI.lua"))()
-if not Luna then
-    return game:GetService("Players").LocalPlayer:Kick("❌ Не удалось загрузить Luna UI")
-end
-
--- Создание окна
-local Window = Luna:CreateWindow({
-    Name = "Abyss Hub",
-    Subtitle = "Blox Fruits v4.0",
-    LogoID = "6031097225",
-    LoadingEnabled = true,
-    LoadingTitle = "Abyss Hub",
-    LoadingSubtitle = "Loading...",
-    KeySystem = false
-})
-
--- Домашняя вкладка
-Window:CreateHomeTab({DiscordInvite = "abysshub", SupportedExecutors = {"Xeno","Delta","Vega X","Arceus X"}})
+local Coords = {
+    Sea1 = Vector3.new(-1175, 25, 1450),
+    Sea2 = Vector3.new(-2550, 25, -4050),
+    Sea3 = Vector3.new(1175, 25, 14575),
+}
 
 -- ============================================
--- PVP ВКЛАДКА
+-- LUNA UI (ПРОБУЕМ ЗАГРУЗИТЬ)
 -- ============================================
-local pvpTab = Window:CreateTab({Name = "PvP", Icon = "sports_mma", ImageSource = "Material"})
-local pvpSec = pvpTab:CreateSection("PvP Functions")
+local Luna = nil
+local loadSuccess = false
 
-pvpSec:CreateToggle({
-    Name = "Fast Attack",
-    Description = "Автоматическая атака (только первый удар M1)",
-    CurrentValue = false,
-    Callback = function(v) 
-        if v then 
-            FastAttack:Start() 
-        else 
-            FastAttack:Stop() 
-        end 
-    end
-})
+-- Пробуем разные способы загрузки
+local url = "https://raw.githubusercontent.com/K1llua66/abyss-hub/main/Luna%20UI.lua"
 
-pvpSec:CreateToggle({
-    Name = "PvP Mode",
-    Description = "Атаковать игроков",
-    CurrentValue = false,
-    Callback = function(v) FastAttack.PvPMode = v end
-})
-
-pvpSec:CreateToggle({
-    Name = "Speed Boost",
-    CurrentValue = false,
-    Callback = function(v) 
-        Player.SpeedEnabled = v
-        Player:Update() 
-    end
-})
-
-pvpSec:CreateSlider({
-    Name = "Speed Multiplier",
-    Range = {1, 10},
-    Increment = 1,
-    CurrentValue = 1,
-    Callback = function(v) Player:SetSpeed(v) end
-})
-
-pvpSec:CreateToggle({
-    Name = "Jump Boost",
-    CurrentValue = false,
-    Callback = function(v) 
-        Player.JumpEnabled = v
-        Player:Update() 
-    end
-})
-
-pvpSec:CreateSlider({
-    Name = "Jump Multiplier",
-    Range = {1, 10},
-    Increment = 1,
-    CurrentValue = 1,
-    Callback = function(v) Player:SetJump(v) end
-})
-
--- ============================================
--- ESP ВКЛАДКА
--- ============================================
-local espTab = Window:CreateTab({Name = "ESP", Icon = "visibility", ImageSource = "Material"})
-local espSec = espTab:CreateSection("ESP Functions")
-
-espSec:CreateToggle({
-    Name = "Fruit ESP",
-    CurrentValue = false,
-    Callback = function(v) ESP.Objects.Fruits = v; if v then ESP:Start() else ESP:Stop() end end
-})
-
-espSec:CreateToggle({
-    Name = "Player ESP", 
-    CurrentValue = false,
-    Callback = function(v) ESP.Objects.Players = v; if v then ESP:Start() else ESP:Stop() end end
-})
-
-espSec:CreateToggle({
-    Name = "NPC ESP",
-    CurrentValue = false,
-    Callback = function(v) ESP.Objects.NPC = v; if v then ESP:Start() else ESP:Stop() end end
-})
-
--- ============================================
--- ТЕЛЕПОРТЫ
--- ============================================
-local teleTab = Window:CreateTab({Name = "Телепорты", Icon = "navigation", ImageSource = "Material"})
-local teleSec = teleTab:CreateSection("Моря")
-
-teleSec:CreateButton({Name = "1st Sea", Callback = function() Teleport.Teleport(Teleport.Coords.Sea1) end})
-teleSec:CreateButton({Name = "2nd Sea", Callback = function() Teleport.Teleport(Teleport.Coords.Sea2) end})
-teleSec:CreateButton({Name = "3rd Sea", Callback = function() Teleport.Teleport(Teleport.Coords.Sea3) end})
-
-local islandSec = teleTab:CreateSection("Острова")
-islandSec:CreateButton({Name = "Pirate Starter", Callback = function() Teleport.Teleport(Teleport.Coords.PirateStarter) end})
-islandSec:CreateButton({Name = "Marine Starter", Callback = function() Teleport.Teleport(Teleport.Coords.MarineStarter) end})
-islandSec:CreateButton({Name = "Jungle", Callback = function() Teleport.Teleport(Teleport.Coords.Jungle) end})
-islandSec:CreateButton({Name = "Desert", Callback = function() Teleport.Teleport(Teleport.Coords.Desert) end})
-islandSec:CreateButton({Name = "Sky Islands", Callback = function() Teleport.Teleport(Teleport.Coords.SkyIslands) end})
-islandSec:CreateButton({Name = "Kingdom of Rose", Callback = function() Teleport.Teleport(Teleport.Coords.KingdomRose) end})
-islandSec:CreateButton({Name = "Port Town", Callback = function() Teleport.Teleport(Teleport.Coords.PortTown) end})
-
--- ============================================
--- НАСТРОЙКИ
--- ============================================
-local setTab = Window:CreateTab({Name = "Настройки", Icon = "settings", ImageSource = "Material"})
-local genSec = setTab:CreateSection("Общие")
-
-genSec:CreateButton({Name = "Unload Script", Callback = function()
-    FastAttack:Stop()
-    ESP:Stop()
-    Window:Destroy()
-end})
-
--- Горячая клавиша
-local mainFrame = nil
-local function findFrame()
-    local p = gethui and gethui() or game:GetService("CoreGui")
-    for _, g in ipairs(p:GetChildren()) do
-        if g.Name == "Luna UI" and g:FindFirstChild("SmartWindow") then
-            mainFrame = g.SmartWindow
-            return true
-        end
-    end
-    return false
-end
-findFrame() or task.wait(1) and findFrame()
-
-local visible = true
-game:GetService("UserInputService").InputBegan:Connect(function(i, g)
-    if g then return end
-    if i.KeyCode == Enum.KeyCode.RightControl then
-        visible = not visible
-        if mainFrame then mainFrame.Visible = visible end
-    end
+-- Способ 1: через HttpGet
+local success, result = pcall(function()
+    return game:HttpGet(url)
 end)
 
-if mainFrame then mainFrame.Visible = true end
+if success and result then
+    local func, err = loadstring(result)
+    if func then
+        local status, res = pcall(func)
+        if status and res then
+            Luna = res
+            loadSuccess = true
+        end
+    end
+end
 
-print("✅ Abyss Hub v4.0 загружен! Клавиша: Right Control")
+-- Если не загрузился, создаем простой UI
+if not loadSuccess then
+    -- Создаем простой ScreenGui
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AbyssHub"
+    screenGui.Parent = game:GetService("CoreGui")
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 300, 0, 400)
+    frame.Position = UDim2.new(0.5, -150, 0.5, -200)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    frame.BackgroundTransparency = 0.1
+    frame.Parent = screenGui
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Text = "Abyss Hub v4.0"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.BackgroundTransparency = 1
+    title.Parent = frame
+    
+    -- Fast Attack кнопка
+    local faBtn = Instance.new("TextButton")
+    faBtn.Size = UDim2.new(0.9, 0, 0, 40)
+    faBtn.Position = UDim2.new(0.05, 0, 0.15, 0)
+    faBtn.Text = "Fast Attack: OFF"
+    faBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    faBtn.Parent = frame
+    
+    local faActive = false
+    faBtn.MouseButton1Click:Connect(function()
+        faActive = not faActive
+        if faActive then
+            faBtn.Text = "Fast Attack: ON"
+            faBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+            StartFastAttack()
+        else
+            faBtn.Text = "Fast Attack: OFF"
+            faBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+            StopFastAttack()
+        end
+    end)
+    
+    -- Speed кнопка
+    local spBtn = Instance.new("TextButton")
+    spBtn.Size = UDim2.new(0.9, 0, 0, 40)
+    spBtn.Position = UDim2.new(0.05, 0, 0.3, 0)
+    spBtn.Text = "Speed: OFF"
+    spBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    spBtn.Parent = frame
+    
+    spBtn.MouseButton1Click:Connect(function()
+        SpeedEnabled = not SpeedEnabled
+        if SpeedEnabled then
+            spBtn.Text = "Speed: ON"
+            spBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        else
+            spBtn.Text = "Speed: OFF"
+            spBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        end
+        UpdateMovement()
+    end)
+    
+    -- Teleport кнопки
+    local sea1Btn = Instance.new("TextButton")
+    sea1Btn.Size = UDim2.new(0.9, 0, 0, 40)
+    sea1Btn.Position = UDim2.new(0.05, 0, 0.45, 0)
+    sea1Btn.Text = "1st Sea"
+    sea1Btn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    sea1Btn.Parent = frame
+    sea1Btn.MouseButton1Click:Connect(function() Teleport(Coords.Sea1) end)
+    
+    local sea2Btn = Instance.new("TextButton")
+    sea2Btn.Size = UDim2.new(0.9, 0, 0, 40)
+    sea2Btn.Position = UDim2.new(0.05, 0, 0.6, 0)
+    sea2Btn.Text = "2nd Sea"
+    sea2Btn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    sea2Btn.Parent = frame
+    sea2Btn.MouseButton1Click:Connect(function() Teleport(Coords.Sea2) end)
+    
+    local sea3Btn = Instance.new("TextButton")
+    sea3Btn.Size = UDim2.new(0.9, 0, 0, 40)
+    sea3Btn.Position = UDim2.new(0.05, 0, 0.75, 0)
+    sea3Btn.Text = "3rd Sea"
+    sea3Btn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    sea3Btn.Parent = frame
+    sea3Btn.MouseButton1Click:Connect(function() Teleport(Coords.Sea3) end)
+    
+    -- Перетаскивание
+    local dragging = false
+    local dragStart
+    local startPos
+    
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    
+    frame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    
+    print("✅ Abyss Hub загружен (упрощенный интерфейс)")
+else
+    -- Если Luna UI загрузился, создаем нормальное окно
+    local Window = Luna:CreateWindow({
+        Name = "Abyss Hub",
+        Subtitle = "Blox Fruits v4.0",
+        KeySystem = false
+    })
+    
+    Window:CreateHomeTab({})
+    
+    local pvpTab = Window:CreateTab({Name = "PvP"})
+    local pvpSec = pvpTab:CreateSection("Functions")
+    
+    pvpSec:CreateToggle({
+        Name = "Fast Attack",
+        CurrentValue = false,
+        Callback = function(v)
+            if v then StartFastAttack() else StopFastAttack() end
+        end
+    })
+    
+    pvpSec:CreateToggle({
+        Name = "PvP Mode",
+        CurrentValue = false,
+        Callback = function(v) PvPMode = v end
+    })
+    
+    pvpSec:CreateToggle({
+        Name = "Speed Boost",
+        CurrentValue = false,
+        Callback = function(v) SpeedEnabled = v; UpdateMovement() end
+    })
+    
+    local teleTab = Window:CreateTab({Name = "Teleports"})
+    local teleSec = teleTab:CreateSection("Seas")
+    
+    teleSec:CreateButton({Name = "1st Sea", Callback = function() Teleport(Coords.Sea1) end})
+    teleSec:CreateButton({Name = "2nd Sea", Callback = function() Teleport(Coords.Sea2) end})
+    teleSec:CreateButton({Name = "3rd Sea", Callback = function() Teleport(Coords.Sea3) end})
+    
+    print("✅ Abyss Hub v4.0 загружен!")
+end
+
+-- Восстанавливаем print
+print = oldPrint
