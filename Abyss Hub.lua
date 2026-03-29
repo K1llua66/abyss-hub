@@ -1,23 +1,19 @@
--- Простейший GUI тест
-local screen = Instance.new("ScreenGui")
-screen.Name = "TestGUI"
-screen.Parent = gethui and gethui() or game:GetService("CoreGui")
+-- XUI тест (встроенный GUI Xeno)
+local XUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/xeno-executor/xui/main/source.lua"))()
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 200)
-frame.Position = UDim2.new(0.5, -150, 0.5, -100)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-frame.Parent = screen
+local Window = XUI:CreateWindow("Abyss Hub", "Blox Fruits")
+local FarmTab = Window:CreateTab("Farm")
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 100, 0, 40)
-button.Position = UDim2.new(0.5, -50, 0.5, -20)
-button.Text = "Click"
-button.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-button.Parent = frame
-
-button.MouseButton1Click:Connect(function()
-    print("Button clicked!")
+FarmTab:CreateToggle("Auto Farm (Level)", false, function(state)
+    print("[Farm] Level:", state)
 end)
 
-print("Simple GUI created")
+FarmTab:CreateToggle("Auto Farm (Nearby)", false, function(state)
+    print("[Farm] Nearby:", state)
+end)
+
+FarmTab:CreateButton("Teleport to 1st Sea", function()
+    print("[Teleport] 1st Sea")
+end)
+
+print("XUI loaded")
