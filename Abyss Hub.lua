@@ -435,8 +435,8 @@ ConfigSection:CreateButton({Name = "Авто-загрузка конфига", C
 
 local GeneralSection = SettingsTab:CreateSection("Общие")
 
--- Клавиша для открытия (переопределяем через UserInputService)
-local keyOptions = {"RightShift", "LeftShift", "RightControl", "LeftControl", "K", "L", "U", "I", "O", "P", "Q", "E", "R", "T", "Y"}
+-- Клавиша для открытия
+local keyOptions = {"RightShift", "LeftShift", "RightControl", "LeftControl", "K", "L", "U", "I", "O", "P", "Q", "E", "R", "T", "Y", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"}
 local keyDropdown = GeneralSection:CreateDropdown({
     Name = "Клавиша открытия",
     Options = keyOptions,
@@ -444,6 +444,8 @@ local keyDropdown = GeneralSection:CreateDropdown({
     Callback = function(opt)
         state.window_bind = opt
         print("[Settings] Bind changed to:", opt)
+        -- Обновляем привязку
+        updateKeybind()
     end
 })
 
@@ -454,29 +456,77 @@ GeneralSection:CreateToggle({Name = "Mobile Support", CurrentValue = UserInputSe
 GeneralSection:CreateButton({Name = "Настройка цветов", Callback = function() Luna:Notification({Title = "Цвета", Content = "В разработке"}) end})
 
 -- ============================================
--- ГОРЯЧАЯ КЛАВИША (переопределяем через UserInputService)
+-- ГОРЯЧАЯ КЛАВИША (полностью отключаем встроенную)
 -- ============================================
 
--- Отключаем стандартный бинд Luna UI
-pcall(function()
-    if Window._originalBind then
-        Window.Bind = Enum.KeyCode[state.window_bind]
-    end
-end)
+-- Находим главное окно Luna UI
+local mainFrame = nil
+local shadowHolder = nil
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    local key = string.split(tostring(input.KeyCode), ".")[3] or ""
-    if key == state.window_bind then
-        if Window.Visible then
-            Window.Visible = false
-            Luna:Notification({Title = "Abyss Hub", Content = "Интерфейс скрыт", Icon = "visibility_off", Duration = 1})
-        else
-            Window.Visible = true
-            Luna:Notification({Title = "Abyss Hub", Content = "Интерфейс открыт", Icon = "visibility", Duration = 1})
+-- Ищем окно в CoreGui/gethui
+local function findLunaWindow()
+    local parent = gethui and gethui() or game:GetService("CoreGui")
+    for _, gui in ipairs(parent:GetChildren()) do
+        if gui.Name == "Luna UI" or (gui.Name and string.find(gui.Name, "Luna")) then
+            if gui:FindFirstChild("SmartWindow") then
+                mainFrame = gui.SmartWindow
+                shadowHolder = gui:FindFirstChild("ShadowHolder")
+                return true
+            end
         end
     end
+    return false
+end
+
+findLunaWindow()
+
+-- Если не нашли, ждём появления
+if not mainFrame then
+    task.wait(1)
+    findLunaWindow()
+end
+
+-- Функция для обновления клавиши
+local function updateKeybind()
+    if _G.__keyConnection then
+        _G.__keyConnection:Disconnect()
+        _G.__keyConnection = nil
+    end
+    
+    local isVisible = true
+    
+    _G.__keyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        local key = string.split(tostring(input.KeyCode), ".")[3] or ""
+        if key == state.window_bind then
+            isVisible = not isVisible
+            if mainFrame then
+                mainFrame.Visible = isVisible
+                if shadowHolder then
+                    shadowHolder.Visible = isVisible
+                end
+                Luna:Notification({
+                    Title = "Abyss Hub", 
+                    Content = isVisible and "Интерфейс открыт" or "Интерфейс скрыт", 
+                    Duration = 1
+                })
+            end
+        end
+    end)
+end
+
+-- Отключаем встроенный бинд Luna UI
+pcall(function()
+    -- Отключаем обработчик клавиш в Luna UI
+    if Window._bindConnection then
+        Window._bindConnection:Disconnect()
+    end
+    -- Меняем Bind на что-то неиспользуемое
+    Window.Bind = Enum.KeyCode.Unknown
 end)
+
+-- Запускаем обработчик
+updateKeybind()
 
 -- Убираем размытие
 pcall(function()
@@ -489,9 +539,11 @@ updateFastAttack()
 -- Уведомление о загрузке
 Luna:Notification({
     Title = "Abyss Hub",
-    Content = "Скрипт загружен! Нажмите " .. state.window_bind .. " для скрытия.",
+    Content = "Скрипт загружен! Клавиша: " .. state.window_bind,
     Icon = "sparkle",
-    ImageSource = "Material"
+    ImageSource = "Material",
+    Duration = 3
 })
 
 print("Abyss Hub загружен! Клавиша открытия:", state.window_bind)
+print("Если интерфейс не открывается, проверьте что окно существует")
