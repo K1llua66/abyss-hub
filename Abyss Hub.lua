@@ -1,74 +1,77 @@
--- Тест: несколько групп в одной вкладке
+-- Тест правильного API Starlight UI
 local Starlight = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/refs/heads/main/Starlight%20UI.lua"))()
 
 if not Starlight then return end
 
 local Window = Starlight:CreateWindow({
-    Title = "Test",
-    Subtitle = "Multiple Groups",
-    Size = UDim2.new(0, 500, 0, 400),
+    Title = "Abyss Hub",
+    Subtitle = "Test",
+    Size = UDim2.new(0, 550, 0, 450),
     Theme = "Starlight"
 })
 
-local MainSection = Window:CreateTabSection("Test", true)
+-- СОЗДАНИЕ ВКЛАДОК (правильный способ)
+local FarmTab = Window:CreateTab("Фарм", "⚔️")
+local TeleportTab = Window:CreateTab("Телепорты", "🌀")
+local PvPTab = Window:CreateTab("PvP", "⚡")
+local ESPTab = Window:CreateTab("ESP", "👁️")
+local RaidTab = Window:CreateTab("Raid", "🔥")
+local SettingsTab = Window:CreateTab("Настройки", "⚙️")
 
--- Одна вкладка
-local TestTab = MainSection:CreateTab({
-    Name = "Test Tab",
-    Columns = 1
-}, "test")
+-- ДОБАВЛЯЕМ ЭЛЕМЕНТЫ В КАЖДУЮ ВКЛАДКУ
 
--- Группа 1
-local Group1 = TestTab:CreateGroupbox({
-    Name = "Group 1 - Auto Farm",
-    Column = 1,
-    Style = 1
-}, "group1")
+-- Фарм
+local FarmGroup = FarmTab:CreateGroupbox("Auto Farm")
+FarmGroup:CreateToggle("Auto Farm (Level)", false, function(state)
+    print("[Farm] Level:", state)
+end)
 
-Group1:CreateToggle({
-    Name = "Auto Farm (Level)",
-    CurrentValue = false,
-    Callback = function(s) print("Level:", s) end
-}, "test1")
+FarmGroup:CreateToggle("Auto Farm (Nearby)", false, function(state)
+    print("[Farm] Nearby:", state)
+end)
 
-Group1:CreateToggle({
-    Name = "Auto Farm (Nearby)",
-    CurrentValue = false,
-    Callback = function(s) print("Nearby:", s) end
-}, "test2")
+local BossGroup = FarmTab:CreateGroupbox("Auto Farm Boss")
+BossGroup:CreateToggle("Auto Farm Boss", false, function(state)
+    print("[Boss]", state)
+end)
 
--- Группа 2
-local Group2 = TestTab:CreateGroupbox({
-    Name = "Group 2 - Auto Farm Boss",
-    Column = 1,
-    Style = 1
-}, "group2")
+-- Телепорты
+local TeleportGroup = TeleportTab:CreateGroupbox("Teleports")
+TeleportGroup:CreateButton("Teleport to 1st Sea", function()
+    print("[Teleport] 1st Sea")
+end)
 
-Group2:CreateToggle({
-    Name = "Auto Farm Boss",
-    CurrentValue = false,
-    Callback = function(s) print("Boss:", s) end
-}, "test3")
+TeleportGroup:CreateButton("Teleport to 2nd Sea", function()
+    print("[Teleport] 2nd Sea")
+end)
 
-Group2:CreateDropdown({
-    Name = "Select Boss",
-    Options = {"Diamond", "Thunder God"},
-    CurrentOption = {"Diamond"},
-    Callback = function(v) print("Boss:", v[1]) end
-}, "boss")
+-- PvP
+local PvPGroup = PvPTab:CreateGroupbox("PvP Functions")
+PvPGroup:CreateToggle("Fast Attack", true, function(state)
+    print("[PvP] Fast Attack:", state)
+end)
 
--- Группа 3
-local Group3 = TestTab:CreateGroupbox({
-    Name = "Group 3 - Auto Mastery",
-    Column = 1,
-    Style = 1
-}, "group3")
+PvPGroup:CreateSlider("Dash Length", 0, 200, 0, function(value)
+    print("[PvP] Dash Length:", value)
+end)
 
-Group3:CreateToggle({
-    Name = "Auto Mastery",
-    CurrentValue = false,
-    Callback = function(s) print("Mastery:", s) end
-}, "test4")
+-- ESP
+local ESPGroup = ESPTab:CreateGroupbox("ESP")
+ESPGroup:CreateToggle("Fruit ESP", false, function(state)
+    print("[ESP] Fruit:", state)
+end)
 
-print("Тест: 3 группы, каждая с элементами")
-Window:Notify("Test", "3 groups added", 3)
+-- Raid
+local RaidGroup = RaidTab:CreateGroupbox("Auto Raid")
+RaidGroup:CreateToggle("Auto Raid", false, function(state)
+    print("[Raid]", state)
+end)
+
+-- Настройки
+local SettingsGroup = SettingsTab:CreateGroupbox("Settings")
+SettingsGroup:CreateButton("Unload", function()
+    Window:Destroy()
+end)
+
+Window:Notify("Abyss Hub", "Тест загружен!", 3)
+print("Все вкладки созданы")
