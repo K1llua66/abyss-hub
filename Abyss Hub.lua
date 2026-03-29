@@ -1,6 +1,6 @@
 --[[
-    Abyss Hub v2.1
-    Полная версия
+    Abyss Hub v2.2
+    Полная версия со встроенным Luna UI
 ]]
 
 -- Проверка игры
@@ -15,30 +15,541 @@ if not isValid then
     return
 end
 
--- Загрузка Luna UI
-local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/refs/heads/main/Luna%20UI.lua"))()
-if not Luna then
-    game:GetService("Players").LocalPlayer:Kick("❌ Не удалось загрузить Luna UI")
-    return
-end
-
--- Создание окна
-local Window = Luna:CreateWindow({
-    Name = "Abyss Hub",
-    Subtitle = "Blox Fruits",
-    LogoID = "6031097225",
-    LoadingEnabled = true,
-    LoadingTitle = "Abyss Hub",
-    LoadingSubtitle = "Loading...",
-    KeySystem = false
-})
-
 -- ============================================
--- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+-- ВСТРОЕННЫЙ LUNA UI (упрощённая версия)
 -- ============================================
+local Luna = {}
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+-- Создание GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "LunaUI"
+screenGui.Parent = gethui and gethui() or game:GetService("CoreGui")
+screenGui.ResetOnSpawn = false
+
+-- Главное окно
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 400, 0, 550)
+mainFrame.Position = UDim2.new(0.5, -200, 0.5, -275)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+mainFrame.BackgroundTransparency = 0.15
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = mainFrame
+
+-- Заголовок
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 48)
+titleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 12)
+titleCorner.Parent = titleBar
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -100, 1, 0)
+title.Position = UDim2.new(0, 15, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "Abyss Hub"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 20
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Font = Enum.Font.GothamBold
+title.Parent = titleBar
+
+local subtitle = Instance.new("TextLabel")
+subtitle.Size = UDim2.new(1, -100, 1, 0)
+subtitle.Position = UDim2.new(0, 15, 0, 28)
+subtitle.BackgroundTransparency = 1
+subtitle.Text = "Blox Fruits"
+subtitle.TextColor3 = Color3.fromRGB(150, 150, 180)
+subtitle.TextSize = 12
+subtitle.TextXAlignment = Enum.TextXAlignment.Left
+subtitle.Font = Enum.Font.Gotham
+subtitle.Parent = titleBar
+
+-- Кнопка закрытия
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 32, 0, 32)
+closeBtn.Position = UDim2.new(1, -42, 0, 8)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextSize = 18
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeBtn
+
+-- Контейнер для вкладок
+local tabsContainer = Instance.new("Frame")
+tabsContainer.Size = UDim2.new(1, 0, 0, 45)
+tabsContainer.Position = UDim2.new(0, 0, 0, 48)
+tabsContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+tabsContainer.BackgroundTransparency = 0.3
+tabsContainer.BorderSizePixel = 0
+tabsContainer.Parent = mainFrame
+
+-- Скроллинг фрейм для контента
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1, 0, 1, -93)
+scrollFrame.Position = UDim2.new(0, 0, 0, 93)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.BorderSizePixel = 0
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollFrame.ScrollBarThickness = 6
+scrollFrame.Parent = mainFrame
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 10)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = scrollFrame
+
+-- Таблицы для вкладок
+local tabs = {}
+local currentTab = nil
+
+-- Функция для создания вкладки
+function Luna:CreateTab(settings)
+    local tabName = settings.Name
+    local tabIcon = settings.Icon or "star"
+    local tabFrame = Instance.new("Frame")
+    tabFrame.Size = UDim2.new(0, 100, 1, 0)
+    tabFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    tabFrame.BackgroundTransparency = 0.5
+    tabFrame.BorderSizePixel = 0
+    tabFrame.Parent = tabsContainer
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    btnCorner.Parent = tabFrame
+    
+    local btnLabel = Instance.new("TextLabel")
+    btnLabel.Size = UDim2.new(1, 0, 1, 0)
+    btnLabel.BackgroundTransparency = 1
+    btnLabel.Text = tabName
+    btnLabel.TextColor3 = Color3.fromRGB(200, 200, 220)
+    btnLabel.TextSize = 13
+    btnLabel.Font = Enum.Font.Gotham
+    btnLabel.Parent = tabFrame
+    
+    -- Контент вкладки
+    local content = Instance.new("Frame")
+    content.Size = UDim2.new(1, -20, 0, 0)
+    content.BackgroundTransparency = 1
+    content.Visible = false
+    content.Parent = scrollFrame
+    
+    local contentLayout = Instance.new("UIListLayout")
+    contentLayout.Padding = UDim.new(0, 8)
+    contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    contentLayout.Parent = content
+    
+    tabs[tabName] = {btn = tabFrame, content = content, layout = contentLayout}
+    
+    tabFrame.MouseButton1Click:Connect(function()
+        for _, t in pairs(tabs) do
+            t.content.Visible = false
+            t.btn.BackgroundTransparency = 0.5
+            t.btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        end
+        content.Visible = true
+        tabFrame.BackgroundTransparency = 0
+        tabFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        currentTab = tabName
+        updateCanvas()
+    end)
+    
+    if not currentTab then
+        content.Visible = true
+        tabFrame.BackgroundTransparency = 0
+        tabFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        currentTab = tabName
+    end
+    
+    -- Возвращаем объект для создания секций
+    local tabObj = {}
+    function tabObj:CreateSection(name)
+        local section = Instance.new("Frame")
+        section.Size = UDim2.new(1, 0, 0, 38)
+        section.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+        section.BackgroundTransparency = 0.5
+        section.BorderSizePixel = 0
+        section.Parent = content
+        
+        local sectionCorner = Instance.new("UICorner")
+        sectionCorner.CornerRadius = UDim.new(0, 8)
+        sectionCorner.Parent = section
+        
+        local sectionLabel = Instance.new("TextLabel")
+        sectionLabel.Size = UDim2.new(1, -20, 1, 0)
+        sectionLabel.Position = UDim2.new(0, 12, 0, 0)
+        sectionLabel.BackgroundTransparency = 1
+        sectionLabel.Text = name
+        sectionLabel.TextColor3 = Color3.fromRGB(180, 180, 255)
+        sectionLabel.TextSize = 14
+        sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+        sectionLabel.Font = Enum.Font.GothamBold
+        sectionLabel.Parent = section
+        
+        local sectionObj = {}
+        
+        function sectionObj:CreateToggle(settings)
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, 0, 0, 44)
+            frame.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+            frame.BackgroundTransparency = 0.4
+            frame.BorderSizePixel = 0
+            frame.Parent = content
+            
+            local frameCorner = Instance.new("UICorner")
+            frameCorner.CornerRadius = UDim.new(0, 8)
+            frameCorner.Parent = frame
+            
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, -80, 1, 0)
+            label.Position = UDim2.new(0, 12, 0, 0)
+            label.BackgroundTransparency = 1
+            label.Text = settings.Name
+            label.TextColor3 = Color3.fromRGB(210, 210, 220)
+            label.TextSize = 13
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Font = Enum.Font.Gotham
+            label.Parent = frame
+            
+            if settings.Description then
+                local desc = Instance.new("TextLabel")
+                desc.Size = UDim2.new(1, -80, 0, 18)
+                desc.Position = UDim2.new(0, 12, 0, 22)
+                desc.BackgroundTransparency = 1
+                desc.Text = settings.Description
+                desc.TextColor3 = Color3.fromRGB(140, 140, 160)
+                desc.TextSize = 11
+                desc.TextXAlignment = Enum.TextXAlignment.Left
+                desc.Font = Enum.Font.Gotham
+                desc.Parent = frame
+                frame.Size = UDim2.new(1, 0, 0, 62)
+            end
+            
+            local toggleBtn = Instance.new("TextButton")
+            toggleBtn.Size = UDim2.new(0, 55, 0, 30)
+            toggleBtn.Position = UDim2.new(1, -67, 0, settings.Description and 16 or 7)
+            toggleBtn.BackgroundColor3 = settings.CurrentValue and Color3.fromRGB(80, 200, 120) or Color3.fromRGB(70, 70, 90)
+            toggleBtn.Text = settings.CurrentValue and "ON" or "OFF"
+            toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            toggleBtn.TextSize = 12
+            toggleBtn.Font = Enum.Font.GothamBold
+            toggleBtn.BorderSizePixel = 0
+            toggleBtn.Parent = frame
+            
+            local btnCorner = Instance.new("UICorner")
+            btnCorner.CornerRadius = UDim.new(0, 6)
+            btnCorner.Parent = toggleBtn
+            
+            local value = settings.CurrentValue
+            toggleBtn.MouseButton1Click:Connect(function()
+                value = not value
+                toggleBtn.BackgroundColor3 = value and Color3.fromRGB(80, 200, 120) or Color3.fromRGB(70, 70, 90)
+                toggleBtn.Text = value and "ON" or "OFF"
+                settings.Callback(value)
+            end)
+            
+            updateCanvas()
+            return toggleBtn
+        end
+        
+        function sectionObj:CreateSlider(settings)
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, 0, 0, 70)
+            frame.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+            frame.BackgroundTransparency = 0.4
+            frame.BorderSizePixel = 0
+            frame.Parent = content
+            
+            local frameCorner = Instance.new("UICorner")
+            frameCorner.CornerRadius = UDim.new(0, 8)
+            frameCorner.Parent = frame
+            
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, -20, 0, 22)
+            label.Position = UDim2.new(0, 12, 0, 6)
+            label.BackgroundTransparency = 1
+            label.Text = settings.Name
+            label.TextColor3 = Color3.fromRGB(210, 210, 220)
+            label.TextSize = 13
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Font = Enum.Font.Gotham
+            label.Parent = frame
+            
+            local valueLabel = Instance.new("TextLabel")
+            valueLabel.Size = UDim2.new(0, 55, 0, 22)
+            valueLabel.Position = UDim2.new(1, -67, 0, 6)
+            valueLabel.BackgroundTransparency = 1
+            valueLabel.Text = tostring(settings.CurrentValue) .. "x"
+            valueLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+            valueLabel.TextSize = 13
+            valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+            valueLabel.Font = Enum.Font.GothamBold
+            valueLabel.Parent = frame
+            
+            local slider = Instance.new("Frame")
+            slider.Size = UDim2.new(1, -24, 0, 4)
+            slider.Position = UDim2.new(0, 12, 0, 40)
+            slider.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+            slider.BorderSizePixel = 0
+            slider.Parent = frame
+            
+            local sliderCorner = Instance.new("UICorner")
+            sliderCorner.CornerRadius = UDim.new(0, 2)
+            sliderCorner.Parent = slider
+            
+            local fill = Instance.new("Frame")
+            local percent = (settings.CurrentValue - settings.Range[1]) / (settings.Range[2] - settings.Range[1])
+            fill.Size = UDim2.new(percent, 0, 1, 0)
+            fill.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+            fill.BorderSizePixel = 0
+            fill.Parent = slider
+            
+            local fillCorner = Instance.new("UICorner")
+            fillCorner.CornerRadius = UDim.new(0, 2)
+            fillCorner.Parent = fill
+            
+            local dragging = false
+            local value = settings.CurrentValue
+            
+            local function updateValue(x)
+                local pos = math.clamp((x - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
+                value = settings.Range[1] + pos * (settings.Range[2] - settings.Range[1])
+                value = math.floor(value / settings.Increment + 0.5) * settings.Increment
+                value = math.max(settings.Range[1], math.min(settings.Range[2], value))
+                fill.Size = UDim2.new(pos, 0, 1, 0)
+                valueLabel.Text = tostring(value) .. "x"
+                settings.Callback(value)
+            end
+            
+            slider.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = true
+                    updateValue(input.Position.X)
+                end
+            end)
+            
+            UIS.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = false
+                end
+            end)
+            
+            slider.InputChanged:Connect(function(input)
+                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                    updateValue(input.Position.X)
+                end
+            end)
+            
+            updateCanvas()
+            return slider
+        end
+        
+        function sectionObj:CreateButton(settings)
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, 0, 0, 40)
+            btn.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+            btn.Text = settings.Name
+            btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+            btn.TextSize = 14
+            btn.Font = Enum.Font.Gotham
+            btn.BorderSizePixel = 0
+            btn.Parent = content
+            
+            local btnCorner = Instance.new("UICorner")
+            btnCorner.CornerRadius = UDim.new(0, 8)
+            btnCorner.Parent = btn
+            
+            btn.MouseButton1Click:Connect(settings.Callback)
+            
+            btn.MouseEnter:Connect(function()
+                TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 75)}):Play()
+            end)
+            btn.MouseLeave:Connect(function()
+                TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 45, 60)}):Play()
+            end)
+            
+            updateCanvas()
+            return btn
+        end
+        
+        function sectionObj:CreateDropdown(settings)
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, 0, 0, 48)
+            frame.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+            frame.BackgroundTransparency = 0.4
+            frame.BorderSizePixel = 0
+            frame.Parent = content
+            
+            local frameCorner = Instance.new("UICorner")
+            frameCorner.CornerRadius = UDim.new(0, 8)
+            frameCorner.Parent = frame
+            
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, -120, 1, 0)
+            label.Position = UDim2.new(0, 12, 0, 0)
+            label.BackgroundTransparency = 1
+            label.Text = settings.Name
+            label.TextColor3 = Color3.fromRGB(210, 210, 220)
+            label.TextSize = 13
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Font = Enum.Font.Gotham
+            label.Parent = frame
+            
+            local dropdownBtn = Instance.new("TextButton")
+            dropdownBtn.Size = UDim2.new(0, 100, 0, 32)
+            dropdownBtn.Position = UDim2.new(1, -112, 0, 8)
+            dropdownBtn.BackgroundColor3 = Color3.fromRGB(55, 55, 70)
+            dropdownBtn.Text = settings.CurrentOption
+            dropdownBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+            dropdownBtn.TextSize = 12
+            dropdownBtn.Font = Enum.Font.Gotham
+            dropdownBtn.BorderSizePixel = 0
+            dropdownBtn.Parent = frame
+            
+            local btnCorner = Instance.new("UICorner")
+            btnCorner.CornerRadius = UDim.new(0, 6)
+            btnCorner.Parent = dropdownBtn
+            
+            local isOpen = false
+            local listFrame = nil
+            
+            dropdownBtn.MouseButton1Click:Connect(function()
+                if listFrame then
+                    listFrame:Destroy()
+                    listFrame = nil
+                    isOpen = false
+                    return
+                end
+                
+                listFrame = Instance.new("Frame")
+                listFrame.Size = UDim2.new(0, 100, 0, #settings.Options * 30)
+                listFrame.Position = UDim2.new(1, -112, 0, 40)
+                listFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+                listFrame.BackgroundTransparency = 0.1
+                listFrame.BorderSizePixel = 0
+                listFrame.Parent = frame
+                
+                local listCorner = Instance.new("UICorner")
+                listCorner.CornerRadius = UDim.new(0, 6)
+                listCorner.Parent = listFrame
+                
+                local listLayout = Instance.new("UIListLayout")
+                listLayout.Padding = UDim.new(0, 2)
+                listLayout.Parent = listFrame
+                
+                for _, opt in ipairs(settings.Options) do
+                    local optBtn = Instance.new("TextButton")
+                    optBtn.Size = UDim2.new(1, 0, 0, 28)
+                    optBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+                    optBtn.Text = opt
+                    optBtn.TextColor3 = Color3.fromRGB(200, 200, 220)
+                    optBtn.TextSize = 12
+                    optBtn.Font = Enum.Font.Gotham
+                    optBtn.BorderSizePixel = 0
+                    optBtn.Parent = listFrame
+                    
+                    local optCorner = Instance.new("UICorner")
+                    optCorner.CornerRadius = UDim.new(0, 4)
+                    optCorner.Parent = optBtn
+                    
+                    optBtn.MouseButton1Click:Connect(function()
+                        dropdownBtn.Text = opt
+                        settings.Callback(opt)
+                        listFrame:Destroy()
+                        listFrame = nil
+                        isOpen = false
+                    end)
+                end
+            end)
+            
+            updateCanvas()
+            return dropdownBtn
+        end
+        
+        return sectionObj
+    end
+    
+    function tabObj:CreateHomeTab(settings)
+        -- Домашняя вкладка (простая)
+        local section = self:CreateSection("Информация")
+        section:CreateButton({Name = "Discord: " .. settings.DiscordInvite, Callback = function() setclipboard("https://discord.gg/" .. settings.DiscordInvite) end})
+        return {}
+    end
+    
+    return tabObj
+end
+
+function Luna:CreateWindow(settings)
+    -- Возвращаем объект окна
+    return {CreateTab = Luna.CreateTab, CreateHomeTab = Luna.CreateHomeTab}
+end
+
+function Luna:Notification(settings)
+    print("[Abyss Hub] " .. settings.Title .. ": " .. settings.Content)
+end
+
+-- Функция обновления CanvasSize
+local function updateCanvas()
+    local height = 0
+    for _, child in ipairs(scrollFrame:GetChildren()) do
+        if child:IsA("Frame") and child ~= tabsContainer and child ~= layout then
+            height = height + child.Size.Y.Offset + 10
+        end
+    end
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, height + 20)
+end
+
+-- Перетаскивание окна
+local dragging = false
+local dragStart, frameStart
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        frameStart = mainFrame.Position
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + delta.X, frameStart.Y.Scale, frameStart.Y.Offset + delta.Y)
+    end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    screenGui.Enabled = false
+end)
+
+-- ============================================
+-- ОСНОВНЫЕ ПЕРЕМЕННЫЕ
+-- ============================================
+local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
 local VU = syn and syn.virtual_user or (getrenv and getrenv().virtual_user)
 
@@ -108,32 +619,12 @@ local state = {
 }
 
 -- ============================================
--- ОТКЛЮЧЕНИЕ РАЗМЫТИЯ
--- ============================================
-local function killBlur()
-    for _, e in ipairs(game:GetService("Lighting"):GetChildren()) do
-        if e:IsA("DepthOfFieldEffect") or e:IsA("BlurEffect") then
-            e:Destroy()
-        end
-    end
-    local p = gethui and gethui() or game:GetService("CoreGui")
-    for _, g in ipairs(p:GetDescendants()) do
-        if g:IsA("DepthOfFieldEffect") or g:IsA("BlurEffect") then
-            g:Destroy()
-        end
-    end
-end
-_G.BlurModule = function() end
-killBlur()
-
--- ============================================
--- СКОРОСТЬ И ПРЫЖОК (исправлено)
+-- СКОРОСТЬ И ПРЫЖОК
 -- ============================================
 local function updateSpeed()
     if hum then
         if state.speed_enabled then
             hum.WalkSpeed = 16 * state.speed
-            print("[Speed] Установлена:", hum.WalkSpeed)
         else
             hum.WalkSpeed = 16
         end
@@ -150,7 +641,6 @@ local function updateJump()
     end
 end
 
--- Постоянное обновление
 RS.Heartbeat:Connect(function()
     updateChar()
     updateSpeed()
@@ -158,7 +648,7 @@ RS.Heartbeat:Connect(function()
 end)
 
 -- ============================================
--- FAST ATTACK (быстрый)
+-- FAST ATTACK
 -- ============================================
 local attackRunning = false
 local lastAttack = 0
@@ -248,7 +738,7 @@ end
 startFastAttack()
 
 -- ============================================
--- ESP (только Fruit, Player, Chest, Island)
+-- ESP
 -- ============================================
 local espLabels = {}
 local espActive = false
@@ -399,7 +889,7 @@ local function stopESP()
 end
 
 -- ============================================
--- ТЕЛЕПОРТЫ (полный список)
+-- ТЕЛЕПОРТЫ
 -- ============================================
 local seaCoords = {
     ["1st Sea"] = Vector3.new(-1250, 80, 330),
@@ -432,82 +922,20 @@ local function teleport(coords)
 end
 
 -- ============================================
--- СОЗДАНИЕ ВКЛАДОК
+-- СОЗДАНИЕ ИНТЕРФЕЙСА
 -- ============================================
 
+-- Создаём окно
+local Window = Luna:CreateWindow({Name = "Abyss Hub", Subtitle = "Blox Fruits"})
+
+-- Домашняя вкладка
 Window:CreateHomeTab({
     DiscordInvite = "abysshub",
     SupportedExecutors = {"Xeno", "Delta", "Vega X", "Arceus X", "Solara", "Hydrogen"}
 })
 
--- Вкладка Фарм
-local farmTab = Window:CreateTab({Name = "Фарм", Icon = "grass", ImageSource = "Material"})
-local farmSec = farmTab:CreateSection("Auto Farm")
-farmSec:CreateToggle({Name = "Auto Farm (Уровень)", CurrentValue = false, Callback = function(v) state.auto_farm_level = v end})
-farmSec:CreateToggle({Name = "Auto Farm (Ближайшие)", CurrentValue = false, Callback = function(v) state.auto_farm_nearby = v end})
-farmSec:CreateDropdown({Name = "Оружие", Options = {"Фрукт", "Меч", "Ближний бой"}, CurrentOption = "Меч", Callback = function(v) state.farm_weapon = v end})
-
-local bossSec = farmTab:CreateSection("Auto Farm Boss")
-bossSec:CreateToggle({Name = "Auto Farm Boss", CurrentValue = false, Callback = function(v) state.auto_farm_boss = v end})
-bossSec:CreateDropdown({Name = "Выбор босса", Options = {"Diamond", "Thunder God", "Vice Admiral"}, CurrentOption = "Diamond", Callback = function(v) state.selected_boss = v end})
-bossSec:CreateDropdown({Name = "Оружие (босс)", Options = {"Фрукт", "Меч", "Ближний бой"}, CurrentOption = "Меч", Callback = function(v) state.boss_weapon = v end})
-bossSec:CreateToggle({Name = "Использовать Fast Attack", CurrentValue = true, Callback = function(v) state.boss_fast_attack = v end})
-
-local masterySec = farmTab:CreateSection("Auto Mastery")
-masterySec:CreateToggle({Name = "Auto Mastery", CurrentValue = false, Callback = function(v) state.auto_mastery = v end})
-masterySec:CreateDropdown({Name = "Тип", Options = {"Фрукт", "Меч", "Ближний бой", "Оружие (Gun)"}, CurrentOption = "Меч", Callback = function(v) state.mastery_type = v end})
-masterySec:CreateToggle({Name = "Использовать Z", CurrentValue = true, Callback = function(v) state.skills.Z = v end})
-masterySec:CreateToggle({Name = "Использовать X", CurrentValue = true, Callback = function(v) state.skills.X = v end})
-masterySec:CreateToggle({Name = "Использовать C", CurrentValue = false, Callback = function(v) state.skills.C = v end})
-masterySec:CreateToggle({Name = "Использовать V", CurrentValue = false, Callback = function(v) state.skills.V = v end})
-masterySec:CreateToggle({Name = "Использовать F", CurrentValue = false, Callback = function(v) state.skills.F = v end})
-
-local fruitSec = farmTab:CreateSection("Auto Fruit")
-fruitSec:CreateToggle({Name = "Auto Fruit (Spawn)", CurrentValue = false, Callback = function(v) state.auto_fruit_spawn = v end})
-fruitSec:CreateToggle({Name = "Auto Fruit (Dealer)", CurrentValue = false, Callback = function(v) state.auto_fruit_dealer = v end})
-fruitSec:CreateToggle({Name = "Auto Store Fruit", CurrentValue = false, Callback = function(v) state.auto_store_fruit = v end})
-
-local chestSec = farmTab:CreateSection("Auto Chest")
-chestSec:CreateToggle({Name = "Auto Chest", CurrentValue = false, Callback = function(v) state.auto_chest = v end})
-chestSec:CreateDropdown({Name = "Режим", Options = {"Teleport Farm", "Tween Farm"}, CurrentOption = "Teleport Farm", Callback = function(v) state.chest_mode = v end})
-
-local otherSec = farmTab:CreateSection("Другие функции")
-otherSec:CreateToggle({Name = "Auto Sea Beast", CurrentValue = false, Callback = function(v) state.auto_sea_beast = v end})
-otherSec:CreateToggle({Name = "Auto Elite Hunter", CurrentValue = false, Callback = function(v) state.auto_elite = v end})
-otherSec:CreateToggle({Name = "Auto Observation (Ken Haki)", CurrentValue = false, Callback = function(v) state.auto_observation = v end})
-otherSec:CreateToggle({Name = "Auto Factory", CurrentValue = false, Callback = function(v) state.auto_factory = v end})
-otherSec:CreateToggle({Name = "Auto Mirage Island", CurrentValue = false, Callback = function(v) state.auto_mirage = v end})
-
-local kitsuneSec = farmTab:CreateSection("Auto Kitsune Island")
-kitsuneSec:CreateToggle({Name = "Авто-сбор Azure Embers", CurrentValue = false, Callback = function(v) state.auto_kitsune_collect = v end})
-kitsuneSec:CreateToggle({Name = "Сдавать Azure Embers", CurrentValue = false, Callback = function(v) state.auto_kitsune_trade = v end})
-kitsuneSec:CreateSlider({Name = "Количество для сдачи", Range = {0, 20}, Increment = 1, CurrentValue = 10, Callback = function(v) state.kitsune_amount = v end})
-
--- Вкладка Телепорты
-local teleTab = Window:CreateTab({Name = "Телепорты", Icon = "navigation", ImageSource = "Material"})
-local teleSec = teleTab:CreateSection("Телепорт между морями")
-teleSec:CreateButton({Name = "Teleport to 1st Sea", Callback = function() teleport(seaCoords["1st Sea"]) Luna:Notification({Title = "Телепорт", Content = "1st Sea"}) end})
-teleSec:CreateButton({Name = "Teleport to 2nd Sea", Callback = function() teleport(seaCoords["2nd Sea"]) Luna:Notification({Title = "Телепорт", Content = "2nd Sea"}) end})
-teleSec:CreateButton({Name = "Teleport to 3rd Sea", Callback = function() teleport(seaCoords["3rd Sea"]) Luna:Notification({Title = "Телепорт", Content = "3rd Sea"}) end})
-
-local islandSec = teleTab:CreateSection("Острова")
-islandSec:CreateButton({Name = "Pirate Starter", Callback = function() teleport(islands["Pirate Starter"]) end})
-islandSec:CreateButton({Name = "Marine Starter", Callback = function() teleport(islands["Marine Starter"]) end})
-islandSec:CreateButton({Name = "Jungle", Callback = function() teleport(islands["Jungle"]) end})
-islandSec:CreateButton({Name = "Desert", Callback = function() teleport(islands["Desert"]) end})
-islandSec:CreateButton({Name = "Sky Islands", Callback = function() teleport(islands["Sky Islands"]) end})
-islandSec:CreateButton({Name = "Kingdom of Rose", Callback = function() teleport(islands["Kingdom of Rose"]) end})
-islandSec:CreateButton({Name = "Port Town", Callback = function() teleport(islands["Port Town"]) end})
-islandSec:CreateButton({Name = "Hydra Island", Callback = function() teleport(islands["Hydra Island"]) end})
-islandSec:CreateButton({Name = "Great Tree", Callback = function() teleport(islands["Great Tree"]) end})
-
-local npcSec = teleTab:CreateSection("NPC")
-npcSec:CreateButton({Name = "Monkey", Callback = function() teleport(npcs["Monkey"]) end})
-npcSec:CreateButton({Name = "Bandit", Callback = function() teleport(npcs["Bandit"]) end})
-npcSec:CreateButton({Name = "Gorilla", Callback = function() teleport(npcs["Gorilla"]) end})
-
 -- Вкладка PvP
-local pvpTab = Window:CreateTab({Name = "PvP", Icon = "sports_mma", ImageSource = "Material"})
+local pvpTab = Window:CreateTab({Name = "PvP", Icon = "sports_mma"})
 local pvpSec = pvpTab:CreateSection("PvP Functions")
 
 pvpSec:CreateToggle({
@@ -567,19 +995,20 @@ pvpSec:CreateSlider({
     end
 })
 
-pvpSec:CreateSlider({Name = "Dash Length", Range = {0, 200}, Increment = 1, CurrentValue = 0, Callback = function(v) state.dash_length = v end})
-pvpSec:CreateToggle({Name = "Infinite Air Jumps", CurrentValue = false, Callback = function(v) state.infinite_air_jumps = v end})
-pvpSec:CreateToggle({Name = "Anti-Stun", CurrentValue = false, Callback = function(v) state.anti_stun = v end})
-pvpSec:CreateToggle({Name = "Infinite Energy", CurrentValue = false, Callback = function(v) state.infinite_energy = v end})
+pvpSec:CreateToggle({
+    Name = "Anti-Stun",
+    CurrentValue = false,
+    Callback = function(v) state.anti_stun = v end
+})
 
-local silentSec = pvpTab:CreateSection("Silent Aim")
-silentSec:CreateToggle({Name = "Silent Aim", CurrentValue = false, Callback = function(v) state.silent_aim = v end})
-silentSec:CreateDropdown({Name = "Режим", Options = {"FOV", "Ближайший", "Дальнейший", "Слабейший", "Сильнейший"}, CurrentOption = "FOV", Callback = function(v) state.silent_mode = v end})
-silentSec:CreateSlider({Name = "FOV", Range = {0, 360}, Increment = 1, CurrentValue = 90, Callback = function(v) state.silent_fov = v end})
-silentSec:CreateSlider({Name = "Макс. дистанция", Range = {0, 500}, Increment = 10, CurrentValue = 200, Callback = function(v) state.silent_distance = v end})
+pvpSec:CreateToggle({
+    Name = "Infinite Energy",
+    CurrentValue = false,
+    Callback = function(v) state.infinite_energy = v end
+})
 
 -- Вкладка ESP
-local espTab = Window:CreateTab({Name = "ESP", Icon = "visibility", ImageSource = "Material"})
+local espTab = Window:CreateTab({Name = "ESP", Icon = "visibility"})
 local espSec = espTab:CreateSection("ESP Functions")
 
 espSec:CreateToggle({
@@ -633,80 +1062,78 @@ espSec:CreateToggle({
     end
 })
 
+-- Вкладка Телепорты
+local teleTab = Window:CreateTab({Name = "Телепорты", Icon = "navigation"})
+local teleSec = teleTab:CreateSection("Моря")
+
+teleSec:CreateButton({Name = "Teleport to 1st Sea", Callback = function() teleport(seaCoords["1st Sea"]) end})
+teleSec:CreateButton({Name = "Teleport to 2nd Sea", Callback = function() teleport(seaCoords["2nd Sea"]) end})
+teleSec:CreateButton({Name = "Teleport to 3rd Sea", Callback = function() teleport(seaCoords["3rd Sea"]) end})
+
+local islandSec = teleTab:CreateSection("Острова")
+islandSec:CreateButton({Name = "Pirate Starter", Callback = function() teleport(islands["Pirate Starter"]) end})
+islandSec:CreateButton({Name = "Marine Starter", Callback = function() teleport(islands["Marine Starter"]) end})
+islandSec:CreateButton({Name = "Jungle", Callback = function() teleport(islands["Jungle"]) end})
+islandSec:CreateButton({Name = "Desert", Callback = function() teleport(islands["Desert"]) end})
+islandSec:CreateButton({Name = "Sky Islands", Callback = function() teleport(islands["Sky Islands"]) end})
+islandSec:CreateButton({Name = "Kingdom of Rose", Callback = function() teleport(islands["Kingdom of Rose"]) end})
+islandSec:CreateButton({Name = "Port Town", Callback = function() teleport(islands["Port Town"]) end})
+
+local npcSec = teleTab:CreateSection("NPC")
+npcSec:CreateButton({Name = "Monkey", Callback = function() teleport(npcs["Monkey"]) end})
+npcSec:CreateButton({Name = "Bandit", Callback = function() teleport(npcs["Bandit"]) end})
+npcSec:CreateButton({Name = "Gorilla", Callback = function() teleport(npcs["Gorilla"]) end})
+
+-- Вкладка Фарм
+local farmTab = Window:CreateTab({Name = "Фарм", Icon = "grass"})
+local farmSec = farmTab:CreateSection("Auto Farm")
+
+farmSec:CreateToggle({Name = "Auto Farm (Уровень)", CurrentValue = false, Callback = function(v) state.auto_farm_level = v end})
+farmSec:CreateToggle({Name = "Auto Farm (Ближайшие)", CurrentValue = false, Callback = function(v) state.auto_farm_nearby = v end})
+farmSec:CreateDropdown({Name = "Оружие", Options = {"Фрукт", "Меч", "Ближний бой"}, CurrentOption = "Меч", Callback = function(v) state.farm_weapon = v end})
+
+local bossSec = farmTab:CreateSection("Auto Farm Boss")
+bossSec:CreateToggle({Name = "Auto Farm Boss", CurrentValue = false, Callback = function(v) state.auto_farm_boss = v end})
+bossSec:CreateDropdown({Name = "Выбор босса", Options = {"Diamond", "Thunder God", "Vice Admiral"}, CurrentOption = "Diamond", Callback = function(v) state.selected_boss = v end})
+
+local chestSec = farmTab:CreateSection("Auto Chest")
+chestSec:CreateToggle({Name = "Auto Chest", CurrentValue = false, Callback = function(v) state.auto_chest = v end})
+
 -- Вкладка Raid
-local raidTab = Window:CreateTab({Name = "Raid", Icon = "whatshot", ImageSource = "Material"})
+local raidTab = Window:CreateTab({Name = "Raid", Icon = "whatshot"})
 local raidSec = raidTab:CreateSection("Auto Raid")
 raidSec:CreateToggle({Name = "Auto Raid", CurrentValue = false, Callback = function(v) state.auto_raid = v end})
-raidSec:CreateToggle({Name = "Авто-старт", CurrentValue = false, Callback = function(v) state.raid_auto_start = v end})
 raidSec:CreateDropdown({Name = "Выбор рейда", Options = {"Flame", "Ice", "Quake", "Light", "Dark", "Sand", "Magma", "Phoenix", "Rumble", "Buddha", "Spider", "Dough"}, CurrentOption = "Buddha", Callback = function(v) state.raid_type = v end})
-raidSec:CreateToggle({Name = "Авто-покупка рейда", CurrentValue = false, Callback = function(v) state.raid_auto_buy = v end})
-raidSec:CreateToggle({Name = "Авто-доставание фрукта", CurrentValue = false, Callback = function(v) state.raid_auto_fruit = v end})
-raidSec:CreateSlider({Name = "Макс. цена фрукта (Beli)", Range = {0, 1000000}, Increment = 10000, CurrentValue = 500000, Callback = function(v) state.raid_max_price = v end})
 raidSec:CreateToggle({Name = "Kill Aura (5 остров рейда)", CurrentValue = false, Callback = function(v) state.kill_aura_raid = v end})
 
 -- Вкладка Настройки
-local setTab = Window:CreateTab({Name = "Настройки", Icon = "settings", ImageSource = "Material"})
+local setTab = Window:CreateTab({Name = "Настройки", Icon = "settings"})
 local configSec = setTab:CreateSection("Конфигурации")
-configSec:CreateButton({Name = "Создать конфиг", Callback = function() Luna:Notification({Title = "Конфиг", Content = "В разработке"}) end})
-configSec:CreateButton({Name = "Сохранить конфиг", Callback = function() Luna:Notification({Title = "Конфиг", Content = "В разработке"}) end})
-configSec:CreateButton({Name = "Загрузить конфиг", Callback = function() Luna:Notification({Title = "Конфиг", Content = "В разработке"}) end})
+configSec:CreateButton({Name = "Создать конфиг", Callback = function() print("[Abyss] Конфиг в разработке") end})
+configSec:CreateButton({Name = "Сохранить конфиг", Callback = function() print("[Abyss] Конфиг в разработке") end})
+configSec:CreateButton({Name = "Загрузить конфиг", Callback = function() print("[Abyss] Конфиг в разработке") end})
 
 local generalSec = setTab:CreateSection("Общие")
-generalSec:CreateButton({Name = "Auto Update", Callback = function() Luna:Notification({Title = "Обновление", Content = "Последняя версия"}) end})
-generalSec:CreateButton({Name = "Unload Script", Callback = function() stopFastAttack(); stopESP(); Window:Destroy() end})
-generalSec:CreateToggle({Name = "Mobile Support", CurrentValue = UIS.TouchEnabled, Callback = function(v) print("[Settings] Mobile:", v) end})
+generalSec:CreateButton({Name = "Unload Script", Callback = function() 
+    stopFastAttack()
+    stopESP()
+    screenGui:Destroy()
+    print("Abyss Hub выгружен")
+end})
 
 -- ============================================
--- ГОРЯЧАЯ КЛАВИША (правая клавиша Ctrl)
+-- ГОРЯЧАЯ КЛАВИША (Right Control)
 -- ============================================
-local mainFrame = nil
-local shadowHolder = nil
 local visible = true
 
-local function findLunaWindow()
-    local parent = gethui and gethui() or game:GetService("CoreGui")
-    for _, gui in ipairs(parent:GetChildren()) do
-        if gui.Name == "Luna UI" or (gui.Name and string.find(gui.Name, "Luna")) then
-            if gui:FindFirstChild("SmartWindow") then
-                mainFrame = gui.SmartWindow
-                shadowHolder = gui:FindFirstChild("ShadowHolder")
-                return true
-            end
-        end
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        visible = not visible
+        screenGui.Enabled = visible
     end
-    return false
-end
-
-findLunaWindow()
-if not mainFrame then
-    task.wait(1)
-    findLunaWindow()
-end
-
--- Отключаем встроенный бинд и устанавливаем RightControl
-pcall(function()
-    if Window._bindConnection then
-        Window._bindConnection:Disconnect()
-    end
-    Window.Bind = Enum.KeyCode.RightControl
 end)
 
--- Включаем размытие только когда интерфейс открыт
-task.wait(0.5)
-if mainFrame then
-    mainFrame.Visible = true
-    if shadowHolder then
-        shadowHolder.Visible = true
-    end
-end
-
--- Уведомление
-Luna:Notification({
-    Title = "Abyss Hub",
-    Content = "Скрипт загружен! Клавиша: Right Control",
-    Icon = "sparkle",
-    ImageSource = "Material",
-    Duration = 3
-})
-
+-- Показываем интерфейс
+screenGui.Enabled = true
 print("Abyss Hub загружен! Клавиша: Right Control")
