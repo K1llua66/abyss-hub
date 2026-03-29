@@ -1,26 +1,20 @@
--- Тест Rayfield с gethui
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+-- Тест Starlight UI с gethui
+local Starlight = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/refs/heads/main/Starlight%20UI.lua"))()
 
--- Создаём окно с указанием родителя через gethui
-local Window = Rayfield:CreateWindow({
-    Name = "Abyss Hub",
-    LoadingTitle = "Abyss Hub",
-    LoadingSubtitle = "Testing",
-    Theme = "Dark",
+if not Starlight then return end
+
+-- Создаём окно с указанием родителя
+local Window = Starlight:CreateWindow({
+    Title = "Abyss Hub",
+    Subtitle = "Test",
+    Size = UDim2.new(0, 500, 0, 400),
     Parent = gethui and gethui() or game:GetService("CoreGui")
 })
 
-local Tab = Window:CreateTab("Test")
+local Tab = Window:CreateTab("Test", "📁")
+local Group = Tab:CreateGroupbox("Test Group")
+Group:CreateButton("Click Me", function()
+    print("Clicked!")
+end)
 
-Tab:CreateButton({
-    Name = "Click Me",
-    Callback = function()
-        print("Clicked!")
-    end
-})
-
-Rayfield:Notify({
-    Title = "Test",
-    Content = "If you see this, it works!",
-    Duration = 3
-})
+print("Тест завершён")
