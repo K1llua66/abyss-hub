@@ -1,6 +1,7 @@
 --[[
-    FastAttack.lua - Исправленная версия
-    Бьет только первым ударом M1, но очень быстро
+    FastAttack.lua - Универсальная версия
+    Работает на всех экзекуторах (Xeno, Delta, Vega X, Arceus X и др.)
+    Бьет только первым ударом M1 без отбрасывания
 ]]
 
 local FastAttack = {
@@ -8,58 +9,105 @@ local FastAttack = {
     PvPMode = false,
     CurrentTarget = nil,
     Loop = nil,
-    AttackCooldown = false,
-    LastAttackTime = 0,
-    AttackDelay = 0.15, -- Задержка между атаками (в секундах)
+    CanAttack = true,
+    LastAttack = 0,
+    AttackSpeed = 0.12, -- Скорость атаки (секунд)
 }
 
--- Функция для отправки первого удара M1
+-- Функция отправки M1 атаки (работает на всех экзекуторах)
 local function SendM1()
-    -- Проверяем, что мы не в кулдауне
-    if FastAttack.AttackCooldown then return end
-    
-    -- Отправляем только ПЕРВЫЙ удар M1
-    -- В Blox Fruits M1 атаки идут через UserInputService или Remote
+    -- Проверяем возможность атаки
+    if not FastAttack.CanAttack then return end
     
     local player = game.Players.LocalPlayer
     local character = player.Character
     if not character then return end
     
-    -- Способ 1: Через Remote (работает в большинстве случаев)
-    local replicatedStorage = game:GetService("ReplicatedStorage")
-    local remotes = replicatedStorage:FindFirstChild("Remotes")
+    -- Способ 1: Через Remote (самый надежный)
+    local success = false
     
+    -- Пробуем разные варианты Remote'ов
+    local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
     if remotes then
+        -- Стандартный Remote для атаки
         local attackRemote = remotes:FindFirstChild("Attack")
         if attackRemote then
-            -- Отправляем только один раз, без продолжения
-            attackRemote:FireServer()
-            FastAttack.AttackCooldown = true
-            
-            -- Сброс кулдауна через задержку
-            task.delay(FastAttack.AttackDelay, function()
-                FastAttack.AttackCooldown = false
+            pcall(function()
+                attackRemote:FireServer()
+                success = true
             end)
-            return
+        end
+        
+        -- Альтернативные Remote'ы
+        if not success then
+            local combatRemote = remotes:FindFirstChild("Combat")
+            if combatRemote then
+                pcall(function()
+                    combatRemote:FireServer("M1")
+                    success = true
+                end)
+            end
+        end
+        
+        if not success then
+            local meleeRemote = remotes:FindFirstChild("MeleeAttack")
+            if meleeRemote then
+                pcall(function()
+                    meleeRemote:FireServer()
+                    success = true
+                end)
+            end
         end
     end
     
-    -- Способ 2: Имитация нажатия клавиши (для экзекуторов)
-    local virtualInput = game:GetService("VirtualInputManager")
-    if virtualInput then
-        -- Нажимаем клавишу мыши (M1)
-        virtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-        task.wait(0.05)
-        virtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-        
-        FastAttack.AttackCooldown = true
-        task.delay(FastAttack.AttackDelay, function()
-            FastAttack.AttackCooldown = false
+    -- Способ 2: Через ContextActionService (для некоторых экзекуторов)
+    if not success then
+        local contextAction = game:GetService("ContextActionService")
+        if contextAction then
+            pcall(function()
+                -- Имитация нажатия кнопки атаки
+                contextAction:PressButton("Attack")
+                task.wait(0.05)
+                contextAction:ReleaseButton("Attack")
+                success = true
+            end)
+        end
+    end
+    
+    -- Способ 3: Через симуляцию мыши (если поддерживается)
+    if not success then
+        pcall(function()
+            local mouse = player:GetMouse()
+            if mouse then
+                -- Эмулируем клик мыши
+                mouse.Button1Down:Fire()
+                task.wait(0.05)
+                mouse.Button1Up:Fire()
+                success = true
+            end
+        end)
+    end
+    
+    -- Если все способы не сработали, используем прямой вызов (экспериментально)
+    if not success then
+        pcall(function()
+            local attackMethod = character:FindFirstChild("AttackMethod")
+            if attackMethod and attackMethod:IsA("RemoteEvent") then
+                attackMethod:FireServer()
+            end
+        end)
+    end
+    
+    -- Устанавливаем кулдаун
+    if success then
+        FastAttack.CanAttack = false
+        task.delay(FastAttack.AttackSpeed, function()
+            FastAttack.CanAttack = true
         end)
     end
 end
 
--- Функция для поиска цели
+-- Поиск ближайшей цели
 local function FindTarget()
     local player = game.Players.LocalPlayer
     local character = player.Character
@@ -69,25 +117,46 @@ local function FindTarget()
     if not hrp then return nil end
     
     local closestTarget = nil
-    local closestDist = math.huge
+    local closestDist = 50 -- Максимальная дистанция поиска
     
     -- Поиск мобов
     if not FastAttack.PvPMode then
-        for _, enemy in pairs(workspace.Enemies:GetChildren()) do
-            if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") then
-                local humanoid = enemy.Humanoid
-                if humanoid.Health > 0 and humanoid.Health < math.huge then
-                    local dist = (hrp.Position - enemy.HumanoidRootPart.Position).Magnitude
-                    if dist < closestDist and dist <= 30 then -- Дистанция атаки 30
-                        closestDist = dist
-                        closestTarget = enemy
+        local enemies = workspace:FindFirstChild("Enemies")
+        if enemies then
+            for _, enemy in pairs(enemies:GetChildren()) do
+                if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") then
+                    local humanoid = enemy.Humanoid
+                    if humanoid.Health > 0 then
+                        local dist = (hrp.Position - enemy.HumanoidRootPart.Position).Magnitude
+                        if dist < closestDist then
+                            closestDist = dist
+                            closestTarget = enemy
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Альтернативный поиск мобов (если нет папки Enemies)
+        if not closestTarget then
+            for _, obj in pairs(workspace:GetChildren()) do
+                if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and not obj:FindFirstChild("PlayerGui") then
+                    if obj:FindFirstChild("HumanoidRootPart") then
+                        local humanoid = obj.Humanoid
+                        if humanoid.Health > 0 then
+                            local dist = (hrp.Position - obj.HumanoidRootPart.Position).Magnitude
+                            if dist < closestDist then
+                                closestDist = dist
+                                closestTarget = obj
+                            end
+                        end
                     end
                 end
             end
         end
     end
     
-    -- Поиск игроков (если включен PvP режим)
+    -- Поиск игроков (PvP режим)
     if FastAttack.PvPMode then
         for _, otherPlayer in pairs(game.Players:GetPlayers()) do
             if otherPlayer ~= player and otherPlayer.Character then
@@ -96,7 +165,7 @@ local function FindTarget()
                     local humanoid = otherChar.Humanoid
                     if humanoid.Health > 0 then
                         local dist = (hrp.Position - otherChar.HumanoidRootPart.Position).Magnitude
-                        if dist < closestDist and dist <= 30 then
+                        if dist < closestDist then
                             closestDist = dist
                             closestTarget = otherChar
                         end
@@ -106,30 +175,52 @@ local function FindTarget()
         end
     end
     
-    return closestTarget, closestDist
+    return closestTarget
 end
 
--- Главный цикл атаки
-function FastAttack:Start()
-    if self.Loop then return end
-    self.Active = true
+-- Поворот к цели
+local function LookAt(target)
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
     
-    self.Loop = game:GetService("RunService").RenderStepped:Connect(function()
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    if target and target:FindFirstChild("HumanoidRootPart") then
+        local targetPos = target.HumanoidRootPart.Position
+        local lookVector = (targetPos - hrp.Position).Unit
+        local newCFrame = CFrame.lookAt(hrp.Position, targetPos)
+        
+        -- Плавный поворот
+        hrp.CFrame = hrp.CFrame:Lerp(newCFrame, 0.5)
+    end
+end
+
+-- Главный цикл
+function FastAttack:Start()
+    if self.Loop then 
+        self:Stop()
+    end
+    
+    self.Active = true
+    self.CanAttack = true
+    
+    self.Loop = game:GetService("RunService").Heartbeat:Connect(function()
         if not self.Active then return end
         
-        -- Находим цель
-        local target, dist = FindTarget()
+        local target = self.CurrentTarget or FindTarget()
         
         if target then
-            -- Смотрим на цель (поворачиваем камеру)
-            local hrp = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hrp and target:FindFirstChild("HumanoidRootPart") then
-                local cframe = CFrame.new(hrp.Position, target.HumanoidRootPart.Position)
-                hrp.CFrame = cframe
-            end
+            LookAt(target)
             
-            -- Атакуем только первым ударом
-            SendM1()
+            -- Атакуем только если цель в радиусе
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and target:FindFirstChild("HumanoidRootPart") then
+                local dist = (char.HumanoidRootPart.Position - target.HumanoidRootPart.Position).Magnitude
+                if dist <= 15 then -- Радиус атаки
+                    SendM1()
+                end
+            end
         end
     end)
 end
@@ -141,30 +232,17 @@ function FastAttack:Stop()
         self.Loop = nil
     end
     self.CurrentTarget = nil
-    self.AttackCooldown = false
+    self.CanAttack = true
 end
 
--- Функция для установки конкретной цели
+-- Установка цели
 function FastAttack:SetTarget(target)
-    if not self.Active then return end
     self.CurrentTarget = target
 end
 
--- Функция для ручной атаки по цели
-function FastAttack:AttackTarget(target)
-    if not target then return end
-    
-    local character = game.Players.LocalPlayer.Character
-    if not character then return end
-    
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if hrp and target:FindFirstChild("HumanoidRootPart") then
-        -- Поворачиваемся к цели
-        hrp.CFrame = CFrame.new(hrp.Position, target.HumanoidRootPart.Position)
-        
-        -- Бьем первым ударом
-        SendM1()
-    end
+-- Изменение скорости атаки
+function FastAttack:SetSpeed(speed)
+    self.AttackSpeed = math.max(0.05, math.min(0.5, speed))
 end
 
 return FastAttack
