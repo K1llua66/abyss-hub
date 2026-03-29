@@ -1,9 +1,9 @@
 --[[
     Abyss Hub
-    Версия: 1.0 (упрощённая)
+    Версия: 1.0 (рабочая)
 ]]
 
--- 🔍 ПРОВЕРКА ИГРЫ
+-- Проверка игры
 local gameId = game.PlaceId
 local validIds = {2753915549, 4442272183, 7449423635}
 local isValid = false
@@ -15,122 +15,68 @@ if not isValid then
     return
 end
 
--- 🔧 ЗАГРУЗКА STARLIGHT UI
-local Starlight = nil
-local success, result = pcall(function()
-    return game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/refs/heads/main/Starlight%20UI.lua")
-end)
-
-if success and result then
-    local func, err = loadstring(result)
-    if func then Starlight = func() end
-end
+-- Загрузка Starlight UI
+local Starlight = loadstring(game:HttpGet("https://raw.githubusercontent.com/K1llua66/abyss-hub/refs/heads/main/Starlight%20UI.lua"))()
 
 if not Starlight then
-    game:GetService("Players").LocalPlayer:Kick("❌ Не удалось загрузить Starlight UI.")
+    game:GetService("Players").LocalPlayer:Kick("❌ Не удалось загрузить Starlight UI")
     return
 end
 
--- 🎨 СОЗДАНИЕ ОКНА
+-- Создание окна
 local Window = Starlight:CreateWindow({
     Title = "Abyss Hub",
     Subtitle = "Blox Fruits",
     Size = UDim2.new(0, 550, 0, 500),
-    Theme = "Dark",
-    Minimizable = true,
-    Resizable = false
+    Theme = "Starlight",
+    Minimizable = true
 })
 
--- 📑 СОЗДАНИЕ СЕКЦИИ И ВКЛАДОК
+-- Создаём секцию вкладок (обязательно)
 local MainSection = Window:CreateTabSection("Меню", true)
 
--- Вкладка Фарм
+-- ============================================
+-- ВКЛАДКА ФАРМ
+-- ============================================
 local FarmTab = MainSection:CreateTab({
     Name = "Фарм",
     Columns = 1,
-    Icon = "⚔️"
-}, "farm")
+    Icon = 6031097225  -- иконка по ID
+}, "farm_tab")
 
--- Вкладка Телепорты
-local TeleportTab = MainSection:CreateTab({
-    Name = "Телепорты",
-    Columns = 1,
-    Icon = "🌀"
-}, "teleport")
-
--- Вкладка PvP
-local PvPTab = MainSection:CreateTab({
-    Name = "PvP",
-    Columns = 1,
-    Icon = "⚡"
-}, "pvp")
-
--- Вкладка ESP
-local ESPTab = MainSection:CreateTab({
-    Name = "ESP",
-    Columns = 1,
-    Icon = "👁️"
-}, "esp")
-
--- Вкладка Raid
-local RaidTab = MainSection:CreateTab({
-    Name = "Raid",
-    Columns = 1,
-    Icon = "🔥"
-}, "raid")
-
--- Вкладка Настройки
-local SettingsTab = MainSection:CreateTab({
-    Name = "Настройки",
-    Columns = 1,
-    Icon = "⚙️"
-}, "settings")
-
--- ============================================
--- ФАРМ
--- ============================================
-
--- Создаём группу
-local FarmGroup = FarmTab:CreateGroupbox({
+-- Группа Auto Farm
+local AutoFarmGroup = FarmTab:CreateGroupbox({
     Name = "Auto Farm",
     Column = 1,
     Style = 1
-}, "farm_group")
+}, "autofarm_group")
 
--- Добавляем элементы (используем правильный API)
-FarmGroup:CreateButton({
-    Name = "Test Button",
-    Callback = function()
-        print("Button clicked!")
-    end
-}, "test_btn")
-
-FarmGroup:CreateToggle({
-    Name = "Auto Farm (Level)",
+AutoFarmGroup:CreateToggle({
+    Name = "Auto Farm (Уровень)",
     CurrentValue = false,
     Callback = function(state)
-        print("Auto Farm Level:", state)
+        print("[Auto Farm] Уровень:", state)
     end
 }, "farm_level")
 
-FarmGroup:CreateToggle({
-    Name = "Auto Farm (Nearby)",
+AutoFarmGroup:CreateToggle({
+    Name = "Auto Farm (Ближайшие)",
     CurrentValue = false,
     Callback = function(state)
-        print("Auto Farm Nearby:", state)
+        print("[Auto Farm] Ближайшие:", state)
     end
 }, "farm_nearby")
 
-FarmGroup:CreateDropdown({
-    Name = "Weapon",
-    Options = {"Fruit", "Sword", "Melee"},
-    CurrentOption = {"Sword"},
+AutoFarmGroup:CreateDropdown({
+    Name = "Оружие",
+    Options = {"Фрукт", "Меч", "Ближний бой"},
+    CurrentOption = {"Меч"},
     Callback = function(value)
-        print("Weapon:", value[1])
+        print("[Auto Farm] Оружие:", value[1])
     end
-}, "weapon")
+}, "farm_weapon")
 
--- Auto Farm Boss
+-- Группа Auto Farm Boss
 local BossGroup = FarmTab:CreateGroupbox({
     Name = "Auto Farm Boss",
     Column = 1,
@@ -141,20 +87,29 @@ BossGroup:CreateToggle({
     Name = "Auto Farm Boss",
     CurrentValue = false,
     Callback = function(state)
-        print("Auto Farm Boss:", state)
+        print("[Auto Farm Boss]", state)
     end
 }, "boss_toggle")
 
 BossGroup:CreateDropdown({
-    Name = "Select Boss",
+    Name = "Выбор босса",
     Options = {"Diamond", "Thunder God", "Vice Admiral"},
     CurrentOption = {"Diamond"},
     Callback = function(value)
-        print("Boss:", value[1])
+        print("[Auto Farm Boss] Босс:", value[1])
     end
 }, "boss_select")
 
--- Auto Mastery
+BossGroup:CreateDropdown({
+    Name = "Способ передвижения",
+    Options = {"Телепорт", "Бег"},
+    CurrentOption = {"Телепорт"},
+    Callback = function(value)
+        print("[Auto Farm Boss] Способ:", value[1])
+    end
+}, "boss_move")
+
+-- Группа Auto Mastery
 local MasteryGroup = FarmTab:CreateGroupbox({
     Name = "Auto Mastery",
     Column = 1,
@@ -165,25 +120,53 @@ MasteryGroup:CreateToggle({
     Name = "Auto Mastery",
     CurrentValue = false,
     Callback = function(state)
-        print("Auto Mastery:", state)
+        print("[Auto Mastery]", state)
     end
 }, "mastery_toggle")
 
 MasteryGroup:CreateDropdown({
-    Name = "Type",
-    Options = {"Fruit", "Sword", "Melee", "Gun"},
-    CurrentOption = {"Sword"},
+    Name = "Тип",
+    Options = {"Фрукт", "Меч", "Ближний бой", "Оружие"},
+    CurrentOption = {"Меч"},
     Callback = function(value)
-        print("Mastery Type:", value[1])
+        print("[Auto Mastery] Тип:", value[1])
     end
 }, "mastery_type")
 
+-- Группа Auto Fruit
+local FruitGroup = FarmTab:CreateGroupbox({
+    Name = "Auto Fruit",
+    Column = 1,
+    Style = 1
+}, "fruit_group")
+
+FruitGroup:CreateToggle({
+    Name = "Auto Fruit (Spawn)",
+    CurrentValue = false,
+    Callback = function(state)
+        print("[Auto Fruit] Сбор:", state)
+    end
+}, "fruit_spawn")
+
+FruitGroup:CreateToggle({
+    Name = "Auto Fruit (Dealer)",
+    CurrentValue = false,
+    Callback = function(state)
+        print("[Auto Fruit] Покупка:", state)
+    end
+}, "fruit_dealer")
+
 -- ============================================
--- ТЕЛЕПОРТЫ
+-- ВКЛАДКА ТЕЛЕПОРТЫ
 -- ============================================
+local TeleportTab = MainSection:CreateTab({
+    Name = "Телепорты",
+    Columns = 1,
+    Icon = 6031097225
+}, "teleport_tab")
 
 local TeleportGroup = TeleportTab:CreateGroupbox({
-    Name = "Teleports",
+    Name = "Телепорты",
     Column = 1,
     Style = 1
 }, "teleport_group")
@@ -191,34 +174,32 @@ local TeleportGroup = TeleportTab:CreateGroupbox({
 TeleportGroup:CreateButton({
     Name = "Teleport to 1st Sea",
     Callback = function()
-        print("Teleport to 1st Sea")
+        print("[Teleport] 1st Sea")
     end
 }, "t1")
 
 TeleportGroup:CreateButton({
     Name = "Teleport to 2nd Sea",
     Callback = function()
-        print("Teleport to 2nd Sea")
+        print("[Teleport] 2nd Sea")
     end
 }, "t2")
 
 TeleportGroup:CreateButton({
     Name = "Teleport to 3rd Sea",
     Callback = function()
-        print("Teleport to 3rd Sea")
+        print("[Teleport] 3rd Sea")
     end
 }, "t3")
 
-TeleportGroup:CreateButton({
-    Name = "Teleport to Islands",
-    Callback = function()
-        print("Teleport to Islands")
-    end
-}, "islands")
-
 -- ============================================
--- PVP
+-- ВКЛАДКА PVP
 -- ============================================
+local PvPTab = MainSection:CreateTab({
+    Name = "PvP",
+    Columns = 1,
+    Icon = 6031097225
+}, "pvp_tab")
 
 local PvPGroup = PvPTab:CreateGroupbox({
     Name = "PvP Functions",
@@ -230,7 +211,7 @@ PvPGroup:CreateToggle({
     Name = "Fast Attack",
     CurrentValue = true,
     Callback = function(state)
-        print("Fast Attack:", state)
+        print("[PvP] Fast Attack:", state)
     end
 }, "fast_attack")
 
@@ -238,7 +219,7 @@ PvPGroup:CreateToggle({
     Name = "Anti-Stun",
     CurrentValue = false,
     Callback = function(state)
-        print("Anti-Stun:", state)
+        print("[PvP] Anti-Stun:", state)
     end
 }, "anti_stun")
 
@@ -247,55 +228,49 @@ PvPGroup:CreateSlider({
     Range = {0, 200},
     CurrentValue = 0,
     Callback = function(value)
-        print("Dash Length:", value)
+        print("[PvP] Dash Length:", value)
     end
 }, "dash")
 
-PvPGroup:CreateToggle({
-    Name = "Infinite Air Jumps",
-    CurrentValue = false,
-    Callback = function(state)
-        print("Infinite Air Jumps:", state)
-    end
-}, "air_jumps")
-
 -- ============================================
--- ESP
+-- ВКЛАДКА ESP
 -- ============================================
+local ESPTab = MainSection:CreateTab({
+    Name = "ESP",
+    Columns = 1,
+    Icon = 6031097225
+}, "esp_tab")
 
-local EspGroup = ESPTab:CreateGroupbox({
+local ESPGroup = ESPTab:CreateGroupbox({
     Name = "ESP Functions",
     Column = 1,
     Style = 1
 }, "esp_group")
 
-EspGroup:CreateToggle({
+ESPGroup:CreateToggle({
     Name = "Fruit ESP",
     CurrentValue = false,
     Callback = function(state)
-        print("Fruit ESP:", state)
+        print("[ESP] Fruit ESP:", state)
     end
 }, "fruit_esp")
 
-EspGroup:CreateToggle({
+ESPGroup:CreateToggle({
     Name = "Player ESP",
     CurrentValue = false,
     Callback = function(state)
-        print("Player ESP:", state)
+        print("[ESP] Player ESP:", state)
     end
 }, "player_esp")
 
-EspGroup:CreateToggle({
-    Name = "NPC ESP",
-    CurrentValue = false,
-    Callback = function(state)
-        print("NPC ESP:", state)
-    end
-}, "npc_esp")
-
 -- ============================================
--- RAID
+-- ВКЛАДКА RAID
 -- ============================================
+local RaidTab = MainSection:CreateTab({
+    Name = "Raid",
+    Columns = 1,
+    Icon = 6031097225
+}, "raid_tab")
 
 local RaidGroup = RaidTab:CreateGroupbox({
     Name = "Auto Raid",
@@ -307,38 +282,26 @@ RaidGroup:CreateToggle({
     Name = "Auto Raid",
     CurrentValue = false,
     Callback = function(state)
-        print("Auto Raid:", state)
+        print("[Raid] Auto Raid:", state)
     end
 }, "auto_raid")
 
-RaidGroup:CreateDropdown({
-    Name = "Raid Type",
-    Options = {"Flame", "Ice", "Buddha", "Dough"},
-    CurrentOption = {"Buddha"},
-    Callback = function(value)
-        print("Raid Type:", value[1])
-    end
-}, "raid_type")
-
 RaidGroup:CreateToggle({
-    Name = "Auto Buy Raid",
+    Name = "Kill Aura (5 island)",
     CurrentValue = false,
     Callback = function(state)
-        print("Auto Buy Raid:", state)
-    end
-}, "auto_buy")
-
-RaidTab:CreateToggle({
-    Name = "Kill Aura (Raid Island 5)",
-    CurrentValue = false,
-    Callback = function(state)
-        print("Kill Aura Raid:", state)
+        print("[Raid] Kill Aura:", state)
     end
 }, "kill_aura")
 
 -- ============================================
 -- НАСТРОЙКИ
 -- ============================================
+local SettingsTab = MainSection:CreateTab({
+    Name = "Настройки",
+    Columns = 1,
+    Icon = 6031097225
+}, "settings_tab")
 
 local SettingsGroup = SettingsTab:CreateGroupbox({
     Name = "Settings",
@@ -353,14 +316,6 @@ SettingsGroup:CreateButton({
     end
 }, "unload")
 
-SettingsGroup:CreateToggle({
-    Name = "Auto Rejoin",
-    CurrentValue = true,
-    Callback = function(state)
-        print("Auto Rejoin:", state)
-    end
-}, "auto_rejoin")
-
--- Уведомление
-Window:Notify("Abyss Hub", "Скрипт загружен!", 3)
+-- Уведомление о загрузке
+Window:Notify("Abyss Hub", "Скрипт успешно загружен!", 3)
 print("Abyss Hub загружен!")
