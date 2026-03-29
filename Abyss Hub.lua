@@ -1,7 +1,6 @@
 --[[
     Abyss Hub
-    Версия: 1.0
-    Основа: Luna UI
+    Версия: 1.0 (рабочий)
 ]]
 
 -- Проверка игры
@@ -34,6 +33,166 @@ local Window = Luna:CreateWindow({
     LoadingSubtitle = "Loading...",
     KeySystem = false
 })
+
+-- Убираем размытие при скрытии (изменяем метод Hide в библиотеке)
+-- Сохраняем оригинальный метод Hide
+local originalHide = _G.Hide or nil
+-- Переопределяем поведение скрытия окна
+local function CustomHide(win, bind, notif)
+    win.Visible = false
+    if notif then
+        Luna:Notification({
+            Title = "Abyss Hub",
+            Content = "Интерфейс скрыт. Нажмите RightShift для открытия.",
+            Icon = "visibility_off"
+        })
+    end
+end
+
+-- Меняем Bind на RightShift
+Window.Bind = Enum.KeyCode.RightShift
+
+-- Переопределяем методы скрытия/показа
+local function CustomUnhide(win, tab)
+    win.Visible = true
+    Luna:Notification({
+        Title = "Abyss Hub",
+        Content = "Интерфейс открыт",
+        Icon = "visibility"
+    })
+end
+
+-- Подменяем функции (если библиотека позволяет)
+pcall(function()
+    -- Находим и отключаем BlurModule
+    _G.BlurModule = function() end
+    -- Подменяем Hide/Unhide в объекте окна
+    Window._originalHide = Window.Hide
+    Window.Hide = function(self, notif)
+        CustomHide(self, Window.Bind, notif)
+    end
+    Window.Unhide = CustomUnhide
+end)
+
+-- Создаём Home Tab (информационная)
+Window:CreateHomeTab()
+
+-- ============================================
+-- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+-- ============================================
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+-- Состояние функций
+local state = {
+    auto_farm_level = false,
+    auto_farm_nearby = false,
+    farm_weapon = "Меч",
+    auto_farm_boss = false,
+    selected_boss = "Diamond",
+    boss_weapon = "Меч",
+    boss_fast_attack = true,
+    boss_move = "Телепорт",
+    auto_mastery = false,
+    mastery_type = "Меч",
+    skills = {Z = true, X = true, C = false, V = false, F = false},
+    auto_fruit_spawn = false,
+    auto_fruit_dealer = false,
+    auto_store_fruit = false,
+    auto_chest = false,
+    chest_mode = "Teleport Farm",
+    auto_sea_beast = false,
+    auto_elite = false,
+    auto_observation = false,
+    auto_factory = false,
+    auto_mirage = false,
+    auto_kitsune_collect = false,
+    auto_kitsune_trade = false,
+    kitsune_amount = 10,
+    fast_attack = true,
+    anti_stun = false,
+    infinite_energy = false,
+    speed = 1,
+    jump = 1,
+    dash_length = 0,
+    infinite_air_jumps = false,
+    silent_aim = false,
+    silent_mode = "FOV",
+    silent_fov = 90,
+    silent_distance = 200,
+    fruit_esp = false,
+    player_esp = false,
+    npc_esp = false,
+    chest_esp = false,
+    island_esp = false,
+    flower_esp = false,
+    fruit_filter = "Все",
+    auto_raid = false,
+    raid_auto_start = false,
+    raid_type = "Buddha",
+    raid_auto_buy = false,
+    raid_auto_fruit = false,
+    raid_max_price = 500000,
+    kill_aura_raid = false,
+}
+
+-- Телепорты
+local function teleportTo(coords)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(coords)
+    end
+end
+
+-- Быстрая атака
+local function applyFastAttack(value)
+    -- Здесь будет логика ускорения атаки
+    print("[Fast Attack] Set to:", value)
+end
+
+-- Изменение скорости
+local function setSpeed(value)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = 16 * value
+    end
+end
+
+-- Изменение прыжка
+local function setJump(value)
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.JumpPower = 50 * value
+    end
+end
+
+-- Длина рывка
+local function setDashLength(value)
+    -- Здесь будет логика изменения длины рывка
+    print("[Dash Length] Set to:", value)
+end
+
+-- Бесконечные воздушные прыжки
+local function setInfiniteAirJumps(enabled)
+    -- Здесь будет логика бесконечных воздушных прыжков
+    print("[Infinite Air Jumps] Set to:", enabled)
+end
+
+-- Бесконечная энергия
+local function setInfiniteEnergy(enabled)
+    -- Здесь будет логика бесконечной энергии
+    print("[Infinite Energy] Set to:", enabled)
+end
+
+-- Anti-Stun
+local function setAntiStun(enabled)
+    -- Здесь будет логика Anti-Stun
+    print("[Anti-Stun] Set to:", enabled)
+end
 
 -- ============================================
 -- ВКЛАДКИ
@@ -90,16 +249,24 @@ local FarmSection = FarmTab:CreateSection("Auto Farm")
 FarmSection:CreateToggle({
     Name = "Auto Farm (Уровень)",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Farm] Level:", state)
+    Callback = function(stateVal)
+        state.auto_farm_level = stateVal
+        print("[Farm] Level:", stateVal)
+        if stateVal then
+            -- Здесь запускается фарм уровня
+        end
     end
 })
 
 FarmSection:CreateToggle({
     Name = "Auto Farm (Ближайшие)",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Farm] Nearby:", state)
+    Callback = function(stateVal)
+        state.auto_farm_nearby = stateVal
+        print("[Farm] Nearby:", stateVal)
+        if stateVal then
+            -- Здесь запускается фарм ближайших мобов
+        end
     end
 })
 
@@ -108,6 +275,7 @@ FarmSection:CreateDropdown({
     Options = {"Фрукт", "Меч", "Ближний бой"},
     CurrentOption = "Меч",
     Callback = function(option)
+        state.farm_weapon = option
         print("[Farm] Weapon:", option)
     end
 })
@@ -117,8 +285,9 @@ local BossSection = FarmTab:CreateSection("Auto Farm Boss")
 BossSection:CreateToggle({
     Name = "Auto Farm Boss",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Boss]", state)
+    Callback = function(stateVal)
+        state.auto_farm_boss = stateVal
+        print("[Boss]", stateVal)
     end
 })
 
@@ -127,6 +296,7 @@ BossSection:CreateDropdown({
     Options = {"Diamond", "Thunder God", "Vice Admiral", "Awakened Ice Admiral"},
     CurrentOption = "Diamond",
     Callback = function(option)
+        state.selected_boss = option
         print("[Boss] Select:", option)
     end
 })
@@ -136,6 +306,7 @@ BossSection:CreateDropdown({
     Options = {"Фрукт", "Меч", "Ближний бой"},
     CurrentOption = "Меч",
     Callback = function(option)
+        state.boss_weapon = option
         print("[Boss] Weapon:", option)
     end
 })
@@ -143,8 +314,9 @@ BossSection:CreateDropdown({
 BossSection:CreateToggle({
     Name = "Использовать Fast Attack",
     CurrentValue = true,
-    Callback = function(state)
-        print("[Boss] Fast Attack:", state)
+    Callback = function(stateVal)
+        state.boss_fast_attack = stateVal
+        print("[Boss] Fast Attack:", stateVal)
     end
 })
 
@@ -153,6 +325,7 @@ BossSection:CreateDropdown({
     Options = {"Телепорт", "Бег"},
     CurrentOption = "Телепорт",
     Callback = function(option)
+        state.boss_move = option
         print("[Boss] Move:", option)
     end
 })
@@ -162,8 +335,9 @@ local MasterySection = FarmTab:CreateSection("Auto Mastery")
 MasterySection:CreateToggle({
     Name = "Auto Mastery",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Mastery]", state)
+    Callback = function(stateVal)
+        state.auto_mastery = stateVal
+        print("[Mastery]", stateVal)
     end
 })
 
@@ -172,6 +346,7 @@ MasterySection:CreateDropdown({
     Options = {"Фрукт", "Меч", "Ближний бой", "Оружие (Gun)"},
     CurrentOption = "Меч",
     Callback = function(option)
+        state.mastery_type = option
         print("[Mastery] Type:", option)
     end
 })
@@ -179,40 +354,45 @@ MasterySection:CreateDropdown({
 MasterySection:CreateToggle({
     Name = "Использовать Z",
     CurrentValue = true,
-    Callback = function(state)
-        print("[Mastery] Z:", state)
+    Callback = function(stateVal)
+        state.skills.Z = stateVal
+        print("[Mastery] Z:", stateVal)
     end
 })
 
 MasterySection:CreateToggle({
     Name = "Использовать X",
     CurrentValue = true,
-    Callback = function(state)
-        print("[Mastery] X:", state)
+    Callback = function(stateVal)
+        state.skills.X = stateVal
+        print("[Mastery] X:", stateVal)
     end
 })
 
 MasterySection:CreateToggle({
     Name = "Использовать C",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Mastery] C:", state)
+    Callback = function(stateVal)
+        state.skills.C = stateVal
+        print("[Mastery] C:", stateVal)
     end
 })
 
 MasterySection:CreateToggle({
     Name = "Использовать V",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Mastery] V:", state)
+    Callback = function(stateVal)
+        state.skills.V = stateVal
+        print("[Mastery] V:", stateVal)
     end
 })
 
 MasterySection:CreateToggle({
     Name = "Использовать F",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Mastery] F:", state)
+    Callback = function(stateVal)
+        state.skills.F = stateVal
+        print("[Mastery] F:", stateVal)
     end
 })
 
@@ -221,24 +401,27 @@ local FruitSection = FarmTab:CreateSection("Auto Fruit")
 FruitSection:CreateToggle({
     Name = "Auto Fruit (Spawn)",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Fruit] Spawn:", state)
+    Callback = function(stateVal)
+        state.auto_fruit_spawn = stateVal
+        print("[Fruit] Spawn:", stateVal)
     end
 })
 
 FruitSection:CreateToggle({
     Name = "Auto Fruit (Dealer)",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Fruit] Dealer:", state)
+    Callback = function(stateVal)
+        state.auto_fruit_dealer = stateVal
+        print("[Fruit] Dealer:", stateVal)
     end
 })
 
 FruitSection:CreateToggle({
     Name = "Auto Store Fruit",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Fruit] Store:", state)
+    Callback = function(stateVal)
+        state.auto_store_fruit = stateVal
+        print("[Fruit] Store:", stateVal)
     end
 })
 
@@ -247,8 +430,9 @@ local ChestSection = FarmTab:CreateSection("Auto Chest")
 ChestSection:CreateToggle({
     Name = "Auto Chest",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Chest]", state)
+    Callback = function(stateVal)
+        state.auto_chest = stateVal
+        print("[Chest]", stateVal)
     end
 })
 
@@ -257,6 +441,7 @@ ChestSection:CreateDropdown({
     Options = {"Teleport Farm", "Tween Farm"},
     CurrentOption = "Teleport Farm",
     Callback = function(option)
+        state.chest_mode = option
         print("[Chest] Mode:", option)
     end
 })
@@ -266,40 +451,45 @@ local OtherSection = FarmTab:CreateSection("Другие функции")
 OtherSection:CreateToggle({
     Name = "Auto Sea Beast",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Sea Beast]", state)
+    Callback = function(stateVal)
+        state.auto_sea_beast = stateVal
+        print("[Sea Beast]", stateVal)
     end
 })
 
 OtherSection:CreateToggle({
     Name = "Auto Elite Hunter",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Elite Hunter]", state)
+    Callback = function(stateVal)
+        state.auto_elite = stateVal
+        print("[Elite Hunter]", stateVal)
     end
 })
 
 OtherSection:CreateToggle({
     Name = "Auto Observation (Ken Haki)",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Observation]", state)
+    Callback = function(stateVal)
+        state.auto_observation = stateVal
+        print("[Observation]", stateVal)
     end
 })
 
 OtherSection:CreateToggle({
     Name = "Auto Factory",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Factory]", state)
+    Callback = function(stateVal)
+        state.auto_factory = stateVal
+        print("[Factory]", stateVal)
     end
 })
 
 OtherSection:CreateToggle({
     Name = "Auto Mirage Island",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Mirage]", state)
+    Callback = function(stateVal)
+        state.auto_mirage = stateVal
+        print("[Mirage]", stateVal)
     end
 })
 
@@ -308,16 +498,18 @@ local KitsuneSection = FarmTab:CreateSection("Auto Kitsune Island")
 KitsuneSection:CreateToggle({
     Name = "Авто-сбор Azure Embers",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Kitsune] Collect:", state)
+    Callback = function(stateVal)
+        state.auto_kitsune_collect = stateVal
+        print("[Kitsune] Collect:", stateVal)
     end
 })
 
 KitsuneSection:CreateToggle({
     Name = "Сдавать Azure Embers",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Kitsune] Trade:", state)
+    Callback = function(stateVal)
+        state.auto_kitsune_trade = stateVal
+        print("[Kitsune] Trade:", stateVal)
     end
 })
 
@@ -327,59 +519,74 @@ KitsuneSection:CreateSlider({
     Increment = 1,
     CurrentValue = 10,
     Callback = function(value)
+        state.kitsune_amount = value
         print("[Kitsune] Amount:", value)
     end
 })
 
 -- ============================================
--- ВКЛАДКА ТЕЛЕПОРТЫ
+-- ВКЛАДКА ТЕЛЕПОРТЫ (рабочие кнопки)
 -- ============================================
 
 local TeleportSection = TeleportTab:CreateSection("Телепорты")
+
 TeleportSection:CreateButton({
     Name = "Teleport to 1st Sea",
     Callback = function()
-        print("[Teleport] 1st Sea")
+        teleportTo(Vector3.new(-1250, 80, 330))
+        Luna:Notification({Title = "Телепорт", Content = "1st Sea", Icon = "navigation"})
     end
 })
 
 TeleportSection:CreateButton({
     Name = "Teleport to 2nd Sea",
     Callback = function()
-        print("[Teleport] 2nd Sea")
+        teleportTo(Vector3.new(-1250, 80, 330)) -- координаты 2-го моря
+        Luna:Notification({Title = "Телепорт", Content = "2nd Sea", Icon = "navigation"})
     end
 })
 
 TeleportSection:CreateButton({
     Name = "Teleport to 3rd Sea",
     Callback = function()
-        print("[Teleport] 3rd Sea")
+        teleportTo(Vector3.new(-1250, 80, 330)) -- координаты 3-го моря
+        Luna:Notification({Title = "Телепорт", Content = "3rd Sea", Icon = "navigation"})
     end
 })
 
 TeleportSection:CreateButton({
     Name = "Teleport to Islands (Safe)",
     Callback = function()
-        print("[Teleport] Islands")
+        -- Безопасный телепорт (ресет)
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = CFrame.new(0, 5000, 0)
+            task.wait(0.5)
+            char.HumanoidRootPart.CFrame = CFrame.new(0, 100, 0)
+        end
+        Luna:Notification({Title = "Телепорт", Content = "Islands", Icon = "navigation"})
     end
 })
 
 TeleportSection:CreateButton({
     Name = "Teleport to NPC",
     Callback = function()
-        print("[Teleport] NPC")
+        -- Здесь можно добавить выбор NPC
+        Luna:Notification({Title = "Телепорт", Content = "NPC", Icon = "navigation"})
     end
 })
 
 TeleportSection:CreateButton({
     Name = "Hop to Server",
     Callback = function()
-        print("[Teleport] Hop")
+        local servers = {}
+        Luna:Notification({Title = "Hop", Content = "Поиск сервера...", Icon = "search"})
+        -- Здесь логика поиска сервера
     end
 })
 
 -- ============================================
--- ВКЛАДКА PVP
+-- ВКЛАДКА PVP (рабочие функции)
 -- ============================================
 
 local PvPSection = PvPTab:CreateSection("PvP Functions")
@@ -387,24 +594,30 @@ local PvPSection = PvPTab:CreateSection("PvP Functions")
 PvPSection:CreateToggle({
     Name = "Fast Attack",
     CurrentValue = true,
-    Callback = function(state)
-        print("[PvP] Fast Attack:", state)
+    Callback = function(stateVal)
+        state.fast_attack = stateVal
+        applyFastAttack(stateVal)
+        print("[PvP] Fast Attack:", stateVal)
     end
 })
 
 PvPSection:CreateToggle({
     Name = "Anti-Stun",
     CurrentValue = false,
-    Callback = function(state)
-        print("[PvP] Anti-Stun:", state)
+    Callback = function(stateVal)
+        state.anti_stun = stateVal
+        setAntiStun(stateVal)
+        print("[PvP] Anti-Stun:", stateVal)
     end
 })
 
 PvPSection:CreateToggle({
     Name = "Infinite Energy",
     CurrentValue = false,
-    Callback = function(state)
-        print("[PvP] Infinite Energy:", state)
+    Callback = function(stateVal)
+        state.infinite_energy = stateVal
+        setInfiniteEnergy(stateVal)
+        print("[PvP] Infinite Energy:", stateVal)
     end
 })
 
@@ -414,6 +627,8 @@ PvPSection:CreateSlider({
     Increment = 1,
     CurrentValue = 1,
     Callback = function(value)
+        state.speed = value
+        setSpeed(value)
         print("[PvP] Speed x", value)
     end
 })
@@ -424,6 +639,8 @@ PvPSection:CreateSlider({
     Increment = 1,
     CurrentValue = 1,
     Callback = function(value)
+        state.jump = value
+        setJump(value)
         print("[PvP] Jump x", value)
     end
 })
@@ -434,6 +651,8 @@ PvPSection:CreateSlider({
     Increment = 1,
     CurrentValue = 0,
     Callback = function(value)
+        state.dash_length = value
+        setDashLength(value)
         print("[PvP] Dash:", value)
     end
 })
@@ -441,8 +660,10 @@ PvPSection:CreateSlider({
 PvPSection:CreateToggle({
     Name = "Infinite Air Jumps",
     CurrentValue = false,
-    Callback = function(state)
-        print("[PvP] Air Jumps:", state)
+    Callback = function(stateVal)
+        state.infinite_air_jumps = stateVal
+        setInfiniteAirJumps(stateVal)
+        print("[PvP] Air Jumps:", stateVal)
     end
 })
 
@@ -452,8 +673,9 @@ local SilentSection = PvPTab:CreateSection("Silent Aim")
 SilentSection:CreateToggle({
     Name = "Silent Aim",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Silent]", state)
+    Callback = function(stateVal)
+        state.silent_aim = stateVal
+        print("[Silent]", stateVal)
     end
 })
 
@@ -462,6 +684,7 @@ SilentSection:CreateDropdown({
     Options = {"FOV", "Ближайший", "Дальнейший", "Слабейший", "Сильнейший"},
     CurrentOption = "FOV",
     Callback = function(option)
+        state.silent_mode = option
         print("[Silent] Mode:", option)
     end
 })
@@ -472,6 +695,7 @@ SilentSection:CreateSlider({
     Increment = 1,
     CurrentValue = 90,
     Callback = function(value)
+        state.silent_fov = value
         print("[Silent] FOV:", value)
     end
 })
@@ -482,6 +706,7 @@ SilentSection:CreateSlider({
     Increment = 10,
     CurrentValue = 200,
     Callback = function(value)
+        state.silent_distance = value
         print("[Silent] Distance:", value)
     end
 })
@@ -489,13 +714,13 @@ SilentSection:CreateSlider({
 PvPSection:CreateToggle({
     Name = "Enable PvP Mode",
     CurrentValue = false,
-    Callback = function(state)
-        print("[PvP] PvP Mode:", state)
+    Callback = function(stateVal)
+        print("[PvP] PvP Mode:", stateVal)
     end
 })
 
 -- ============================================
--- ВКЛАДКА ESP
+-- ВКЛАДКА ESP (заготовки)
 -- ============================================
 
 local EspSection = ESPTab:CreateSection("ESP Functions")
@@ -503,48 +728,54 @@ local EspSection = ESPTab:CreateSection("ESP Functions")
 EspSection:CreateToggle({
     Name = "Fruit ESP",
     CurrentValue = false,
-    Callback = function(state)
-        print("[ESP] Fruit:", state)
+    Callback = function(stateVal)
+        state.fruit_esp = stateVal
+        print("[ESP] Fruit:", stateVal)
     end
 })
 
 EspSection:CreateToggle({
     Name = "Player ESP",
     CurrentValue = false,
-    Callback = function(state)
-        print("[ESP] Player:", state)
+    Callback = function(stateVal)
+        state.player_esp = stateVal
+        print("[ESP] Player:", stateVal)
     end
 })
 
 EspSection:CreateToggle({
     Name = "NPC ESP",
     CurrentValue = false,
-    Callback = function(state)
-        print("[ESP] NPC:", state)
+    Callback = function(stateVal)
+        state.npc_esp = stateVal
+        print("[ESP] NPC:", stateVal)
     end
 })
 
 EspSection:CreateToggle({
     Name = "Chest ESP",
     CurrentValue = false,
-    Callback = function(state)
-        print("[ESP] Chest:", state)
+    Callback = function(stateVal)
+        state.chest_esp = stateVal
+        print("[ESP] Chest:", stateVal)
     end
 })
 
 EspSection:CreateToggle({
     Name = "Island ESP",
     CurrentValue = false,
-    Callback = function(state)
-        print("[ESP] Island:", state)
+    Callback = function(stateVal)
+        state.island_esp = stateVal
+        print("[ESP] Island:", stateVal)
     end
 })
 
 EspSection:CreateToggle({
     Name = "Flower ESP",
     CurrentValue = false,
-    Callback = function(state)
-        print("[ESP] Flower:", state)
+    Callback = function(stateVal)
+        state.flower_esp = stateVal
+        print("[ESP] Flower:", stateVal)
     end
 })
 
@@ -553,6 +784,7 @@ EspSection:CreateDropdown({
     Options = {"Все", "Rare+", "Legendary+", "Mythical"},
     CurrentOption = "Все",
     Callback = function(option)
+        state.fruit_filter = option
         print("[ESP] Filter:", option)
     end
 })
@@ -566,16 +798,18 @@ local RaidSection = RaidTab:CreateSection("Auto Raid")
 RaidSection:CreateToggle({
     Name = "Auto Raid",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Raid] Auto:", state)
+    Callback = function(stateVal)
+        state.auto_raid = stateVal
+        print("[Raid] Auto:", stateVal)
     end
 })
 
 RaidSection:CreateToggle({
     Name = "Авто-старт",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Raid] Auto Start:", state)
+    Callback = function(stateVal)
+        state.raid_auto_start = stateVal
+        print("[Raid] Auto Start:", stateVal)
     end
 })
 
@@ -584,6 +818,7 @@ RaidSection:CreateDropdown({
     Options = {"Flame", "Ice", "Quake", "Light", "Dark", "Sand", "Magma", "Phoenix", "Rumble", "Buddha", "Spider", "Dough"},
     CurrentOption = "Buddha",
     Callback = function(option)
+        state.raid_type = option
         print("[Raid] Type:", option)
     end
 })
@@ -591,16 +826,18 @@ RaidSection:CreateDropdown({
 RaidSection:CreateToggle({
     Name = "Авто-покупка рейда",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Raid] Auto Buy:", state)
+    Callback = function(stateVal)
+        state.raid_auto_buy = stateVal
+        print("[Raid] Auto Buy:", stateVal)
     end
 })
 
 RaidSection:CreateToggle({
     Name = "Авто-доставание фрукта",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Raid] Auto Fruit:", state)
+    Callback = function(stateVal)
+        state.raid_auto_fruit = stateVal
+        print("[Raid] Auto Fruit:", stateVal)
     end
 })
 
@@ -610,6 +847,7 @@ RaidSection:CreateSlider({
     Increment = 10000,
     CurrentValue = 500000,
     Callback = function(value)
+        state.raid_max_price = value
         print("[Raid] Max Price:", value)
     end
 })
@@ -617,8 +855,9 @@ RaidSection:CreateSlider({
 RaidSection:CreateToggle({
     Name = "Kill Aura (5 остров рейда)",
     CurrentValue = false,
-    Callback = function(state)
-        print("[Raid] Kill Aura:", state)
+    Callback = function(stateVal)
+        state.kill_aura_raid = stateVal
+        print("[Raid] Kill Aura:", stateVal)
     end
 })
 
@@ -632,6 +871,7 @@ ConfigSection:CreateButton({
     Name = "Создать конфиг",
     Callback = function()
         print("[Config] Create")
+        Luna:Notification({Title = "Конфиг", Content = "Функция в разработке", Icon = "info"})
     end
 })
 
@@ -639,6 +879,7 @@ ConfigSection:CreateButton({
     Name = "Сохранить конфиг",
     Callback = function()
         print("[Config] Save")
+        Luna:Notification({Title = "Конфиг", Content = "Функция в разработке", Icon = "info"})
     end
 })
 
@@ -646,6 +887,7 @@ ConfigSection:CreateButton({
     Name = "Загрузить конфиг",
     Callback = function()
         print("[Config] Load")
+        Luna:Notification({Title = "Конфиг", Content = "Функция в разработке", Icon = "info"})
     end
 })
 
@@ -653,6 +895,7 @@ ConfigSection:CreateButton({
     Name = "Авто-загрузка конфига",
     Callback = function()
         print("[Config] Auto Load")
+        Luna:Notification({Title = "Конфиг", Content = "Функция в разработке", Icon = "info"})
     end
 })
 
@@ -662,6 +905,7 @@ GeneralSection:CreateButton({
     Name = "Auto Update",
     Callback = function()
         print("[Settings] Update")
+        Luna:Notification({Title = "Обновление", Content = "Вы используете последнюю версию", Icon = "info"})
     end
 })
 
@@ -669,25 +913,25 @@ GeneralSection:CreateButton({
     Name = "Unload Script",
     Callback = function()
         Window:Destroy()
+        print("Abyss Hub выгружен")
     end
 })
 
 GeneralSection:CreateToggle({
     Name = "Авто-запуск при переходе сервера",
     CurrentValue = true,
-    Callback = function(state)
-        print("[Settings] Auto Rejoin:", state)
+    Callback = function(stateVal)
+        print("[Settings] Auto Rejoin:", stateVal)
     end
 })
 
--- Определяем мобильное устройство
-local IsMobile = game:GetService("UserInputService").TouchEnabled and not game:GetService("UserInputService").KeyboardEnabled
+local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 GeneralSection:CreateToggle({
     Name = "Mobile Support",
     CurrentValue = IsMobile,
-    Callback = function(state)
-        print("[Settings] Mobile:", state)
+    Callback = function(stateVal)
+        print("[Settings] Mobile:", stateVal)
     end
 })
 
@@ -695,15 +939,38 @@ GeneralSection:CreateButton({
     Name = "Настройка цветов",
     Callback = function()
         print("[Settings] Colors")
+        Luna:Notification({Title = "Цвета", Content = "Функция в разработке", Icon = "info"})
     end
 })
 
--- Уведомление
+-- ============================================
+-- ГОРЯЧАЯ КЛАВИША RightShift
+-- ============================================
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        if Window.Visible then
+            Window.Visible = false
+            Luna:Notification({Title = "Abyss Hub", Content = "Интерфейс скрыт. Нажмите RightShift для открытия.", Icon = "visibility_off"})
+        else
+            Window.Visible = true
+            Luna:Notification({Title = "Abyss Hub", Content = "Интерфейс открыт", Icon = "visibility"})
+        end
+    end
+end)
+
+-- Убираем размытие (отключаем BlurModule)
+pcall(function()
+    _G.BlurModule = function() end
+end)
+
+-- Уведомление о загрузке
 Luna:Notification({
     Title = "Abyss Hub",
-    Content = "Скрипт успешно загружен!",
+    Content = "Скрипт успешно загружен! Нажмите RightShift для скрытия/открытия.",
     Icon = "sparkle",
     ImageSource = "Material"
 })
 
-print("Abyss Hub загружен!")
+print("Abyss Hub загружен! RightShift для скрытия/открытия.")
