@@ -4,9 +4,23 @@
     Версия: 1.0
 ]]
 
--- 🔍 ПРОВЕРКА ИГРЫ (только Blox Fruits)
+-- 🔍 ПРОВЕРКА ИГРЫ (все моря Blox Fruits)
 local gameId = game.PlaceId
-if gameId ~= 2753915549 then
+local validIds = {
+    2753915549, -- 1st Sea
+    4442272183, -- 2nd Sea
+    7449423635, -- 3rd Sea
+}
+
+local isValid = false
+for _, id in ipairs(validIds) do
+    if gameId == id then
+        isValid = true
+        break
+    end
+end
+
+if not isValid then
     game:GetService("Players").LocalPlayer:Kick("❌ Abyss Hub работает только в Blox Fruits!")
     return
 end
