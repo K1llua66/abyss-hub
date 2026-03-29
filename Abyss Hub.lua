@@ -1,37 +1,53 @@
 --[[
-    Blox Fruits Hub
+    Abyss Hub
     Основа: Starlight Interface Suite
     Версия: 1.0
 ]]
 
---------------------------------------------------------------------
--- 🔧 ЗАГРУЗКА STARLIGHT UI
---------------------------------------------------------------------
-
-local Starlight = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Starlight-Interface-Suite/main/Source.lua"))()
-
-if not Starlight then
-    warn("Не удалось загрузить Starlight UI")
+-- 🔍 ПРОВЕРКА ИГРЫ (только Blox Fruits)
+local gameId = game.PlaceId
+if gameId ~= 2753915549 then
+    game:GetService("Players").LocalPlayer:Kick("❌ Abyss Hub работает только в Blox Fruits!")
     return
 end
 
---------------------------------------------------------------------
--- 🎨 СОЗДАНИЕ ГЛАВНОГО ОКНА
---------------------------------------------------------------------
+-- 🔧 ЗАГРУЗКА STARLIGHT UI (с альтернативными ссылками)
+local Starlight = nil
+local urls = {
+    "https://raw.githubusercontent.com/Nebula-Softworks/Starlight-Interface-Suite/main/Source.lua",
+    "https://raw.githubusercontent.com/Nebula-Softworks/Starlight-Interface-Suite/refs/heads/main/Source.lua",
+}
 
+for _, url in ipairs(urls) do
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
+    if success and result then
+        local func, err = loadstring(result)
+        if func then
+            Starlight = func()
+            if Starlight then break end
+        end
+    end
+    wait(0.5)
+end
+
+if not Starlight then
+    game:GetService("Players").LocalPlayer:Kick("❌ Не удалось загрузить Starlight UI. Проверьте интернет-соединение.")
+    return
+end
+
+-- 🎨 СОЗДАНИЕ ГЛАВНОГО ОКНА
 local Window = Starlight:CreateWindow({
-    Title = "Blox Fruits Hub",
-    Subtitle = "by Me | Starlight UI",
+    Title = "Abyss Hub",
+    Subtitle = "Blox Fruits | Starlight UI",
     Size = UDim2.new(0, 600, 0, 550),
     Theme = "Dark",
     Minimizable = true,
     Resizable = false
 })
 
---------------------------------------------------------------------
 -- 📑 СОЗДАНИЕ ВКЛАДОК
---------------------------------------------------------------------
-
 local FarmTab = Window:CreateTab("Фарм", "⚔️")
 local TeleportTab = Window:CreateTab("Телепорты", "🌀")
 local PvPTab = Window:CreateTab("PvP", "⚡")
@@ -39,9 +55,7 @@ local ESPTab = Window:CreateTab("ESP", "👁️")
 local RaidTab = Window:CreateTab("Raid", "🔥")
 local SettingsTab = Window:CreateTab("Настройки", "⚙️")
 
---------------------------------------------------------------------
 -- ⚔️ ВКЛАДКА ФАРМ
---------------------------------------------------------------------
 
 -- Секция Auto Farm
 local FarmSection = FarmTab:CreateSection("Auto Farm")
@@ -154,9 +168,7 @@ KitsuneSection:CreateSlider("Количество для сдачи", 0, 20, 10,
     print("[Kitsune] Сдавать при:", value)
 end)
 
---------------------------------------------------------------------
 -- 🌀 ВКЛАДКА ТЕЛЕПОРТЫ
---------------------------------------------------------------------
 
 TeleportTab:CreateButton("Teleport to 1st Sea", function()
     print("[Teleport] 1st Sea")
@@ -182,9 +194,7 @@ TeleportTab:CreateButton("Hop to Server", function()
     print("[Teleport] Hop to Server")
 end)
 
---------------------------------------------------------------------
 -- ⚡ ВКЛАДКА PVP
---------------------------------------------------------------------
 
 PvPTab:CreateToggle("Fast Attack", true, function(state)
     print("[PvP] Fast Attack:", state)
@@ -236,9 +246,7 @@ PvPTab:CreateToggle("Enable PvP Mode", false, function(state)
     print("[PvP] Enable PvP Mode:", state)
 end)
 
---------------------------------------------------------------------
 -- 👁️ ВКЛАДКА ESP
---------------------------------------------------------------------
 
 ESPTab:CreateToggle("Fruit ESP", false, function(state)
     print("[ESP] Fruit ESP:", state)
@@ -268,9 +276,7 @@ ESPTab:CreateDropdown("Fruit Rarity Filter", {"Все", "Rare+", "Legendary+", "
     print("[ESP] Fruit Filter:", value)
 end)
 
---------------------------------------------------------------------
 -- 🔥 ВКЛАДКА RAID
---------------------------------------------------------------------
 
 local RaidSection = RaidTab:CreateSection("Auto Raid")
 RaidSection:CreateToggle("Auto Raid", false, function(state)
@@ -301,9 +307,7 @@ RaidTab:CreateToggle("Kill Aura (5 остров рейда)", false, function(st
     print("[Raid] Kill Aura:", state)
 end)
 
---------------------------------------------------------------------
 -- ⚙️ ВКЛАДКА НАСТРОЙКИ
---------------------------------------------------------------------
 
 -- Конфигурации
 local ConfigSection = SettingsTab:CreateSection("Конфигурации")
@@ -352,9 +356,6 @@ SettingsTab:CreateButton("Настройка цветов", function()
     print("[Settings] Color Settings (soon)")
 end)
 
---------------------------------------------------------------------
 -- 🎉 ЗАВЕРШЕНИЕ
---------------------------------------------------------------------
-
-print("Blox Fruits Hub загружен! (Starlight UI)")
-Window:Notify("Blox Fruits Hub", "Скрипт успешно загружен!", 3)
+print("Abyss Hub загружен! (Blox Fruits)")
+Window:Notify("Abyss Hub", "Скрипт успешно загружен!", 3)
