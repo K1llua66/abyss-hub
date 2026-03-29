@@ -1,4 +1,4 @@
--- Abyss Hub v4.0 - Простая и надежная версия
+-- Abyss Hub v4.0 - Исправленная версия
 
 -- Проверка игры
 local placeId = game.PlaceId
@@ -14,7 +14,6 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 
 -- Состояния
 local state = {
@@ -33,33 +32,76 @@ local state = {
     jumpValue = 50,
 }
 
--- Текущая цель
-local currentTarget = nil
+-- Переменные для атаки
 local canAttack = true
+local lastAttackTime = 0
+local attackDelay = 0.12
 
 -- ============================================
--- БАЗОВЫЕ ФУНКЦИИ
+-- ОТПРАВКА M1 АТАКИ (ИСПРАВЛЕНО)
 -- ============================================
-
--- Отправка M1 атаки
 local function SendM1()
     if not canAttack then return end
     
-    local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+    local player = LocalPlayer
+    local character = player.Character
+    if not character then return end
+    
+    -- Пробуем разные способы отправки атаки
+    local success = false
+    
+    -- Способ 1: Через Remote
+    local replicatedStorage = game:GetService("ReplicatedStorage")
+    local remotes = replicatedStorage:FindFirstChild("Remotes")
+    
     if remotes then
-        local attack = remotes:FindFirstChild("Attack")
-        if attack then
-            pcall(function() 
-                attack:FireServer() 
-                canAttack = false
-                task.wait(0.12)
-                canAttack = true
+        local attackRemote = remotes:FindFirstChild("Attack")
+        if attackRemote then
+            pcall(function()
+                attackRemote:FireServer()
+                success = true
             end)
         end
+        
+        if not success then
+            local combatRemote = remotes:FindFirstChild("Combat")
+            if combatRemote then
+                pcall(function()
+                    combatRemote:FireServer("M1")
+                    success = true
+                end)
+            end
+        end
+    end
+    
+    -- Способ 2: Через мышь
+    if not success then
+        pcall(function()
+            local mouse = player:GetMouse()
+            if mouse then
+                local b1d = mouse.Button1Down
+                local b1u = mouse.Button1Up
+                if b1d and b1u then
+                    b1d:Fire()
+                    task.wait(0.05)
+                    b1u:Fire()
+                    success = true
+                end
+            end
+        end)
+    end
+    
+    if success then
+        canAttack = false
+        task.delay(attackDelay, function()
+            canAttack = true
+        end)
     end
 end
 
--- Поиск ближайшего моба
+-- ============================================
+-- ПОИСК ЦЕЛЕЙ
+-- ============================================
 local function GetClosestMob()
     local char = LocalPlayer.Character
     if not char then return nil end
@@ -87,7 +129,6 @@ local function GetClosestMob()
     return closest
 end
 
--- Поиск ближайшего игрока
 local function GetClosestPlayer()
     local char = LocalPlayer.Character
     if not char then return nil end
@@ -101,7 +142,8 @@ local function GetClosestPlayer()
         if player ~= LocalPlayer and player.Character then
             local pchar = player.Character
             local phrp = pchar:FindFirstChild("HumanoidRootPart")
-            if phrp then
+            local phum = pchar:FindFirstChild("Humanoid")
+            if phrp and phum and phum.Health > 0 then
                 local dist = (hrp.Position - phrp.Position).Magnitude
                 if dist < closestDist then
                     closestDist = dist
@@ -114,7 +156,48 @@ local function GetClosestPlayer()
     return closest
 end
 
--- Поворот к цели
+local function GetTargetsByMode()
+    local char = LocalPlayer.Character
+    if not char then return {} end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return {} end
+    
+    local targets = {}
+    local enemies = workspace:FindFirstChild("Enemies")
+    
+    if enemies then
+        for _, enemy in pairs(enemies:GetChildren()) do
+            local ehrp = enemy:FindFirstChild("HumanoidRootPart")
+            local hum = enemy:FindFirstChild("Humanoid")
+            if ehrp and hum and hum.Health > 0 then
+                local dist = (hrp.Position - ehrp.Position).Magnitude
+                if dist <= state.maxDistance then
+                    table.insert(targets, {
+                        obj = enemy,
+                        dist = dist,
+                        health = hum.Health
+                    })
+                end
+            end
+        end
+    end
+    
+    if state.aimMode == "Closest" then
+        table.sort(targets, function(a, b) return a.dist < b.dist end)
+    elseif state.aimMode == "Farthest" then
+        table.sort(targets, function(a, b) return a.dist > b.dist end)
+    elseif state.aimMode == "Weakest" then
+        table.sort(targets, function(a, b) return a.health < b.health end)
+    elseif state.aimMode == "Strongest" then
+        table.sort(targets, function(a, b) return a.health > b.health end)
+    end
+    
+    return targets
+end
+
+-- ============================================
+-- ПОВОРОТ К ЦЕЛИ
+-- ============================================
 local function LookAt(target)
     local char = LocalPlayer.Character
     if not char then return end
@@ -127,7 +210,9 @@ local function LookAt(target)
     end
 end
 
--- Телепорт
+-- ============================================
+-- ТЕЛЕПОРТ
+-- ============================================
 local function Teleport(pos)
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
@@ -135,7 +220,9 @@ local function Teleport(pos)
     end
 end
 
--- Обновление скорости/прыжка
+-- ============================================
+-- ОБНОВЛЕНИЕ ДВИЖЕНИЯ
+-- ============================================
 local function UpdateMovement()
     local char = LocalPlayer.Character
     if not char then return end
@@ -159,6 +246,34 @@ end
 -- ОСНОВНЫЕ ЦИКЛЫ
 -- ============================================
 
+-- Fast Attack цикл (ИСПРАВЛЕН)
+local fastLoop = nil
+local function StartFastAttack()
+    if fastLoop then return end
+    fastLoop = RunService.Heartbeat:Connect(function()
+        if not state.fastAttack then return end
+        
+        local target = nil
+        if state.pvpMode then
+            target = GetClosestPlayer()
+        else
+            target = GetClosestMob()
+        end
+        
+        if target then
+            LookAt(target)
+            SendM1()
+        end
+    end)
+end
+
+local function StopFastAttack()
+    if fastLoop then
+        fastLoop:Disconnect()
+        fastLoop = nil
+    end
+end
+
 -- Auto Farm цикл
 local farmLoop = nil
 local function StartAutoFarm()
@@ -172,8 +287,12 @@ local function StartAutoFarm()
         end
     end)
 end
+
 local function StopAutoFarm()
-    if farmLoop then farmLoop:Disconnect() farmLoop = nil end
+    if farmLoop then
+        farmLoop:Disconnect()
+        farmLoop = nil
+    end
 end
 
 -- Auto Boss цикл
@@ -184,6 +303,7 @@ local bossPositions = {
     CakeQueen = Vector3.new(-1550, 245, 425),
     RipIndra = Vector3.new(-1075, 25, 5050),
 }
+
 local bossLoop = nil
 local function StartAutoBoss()
     if bossLoop then return end
@@ -210,25 +330,12 @@ local function StartAutoBoss()
         end
     end)
 end
-local function StopAutoBoss()
-    if bossLoop then bossLoop:Disconnect() bossLoop = nil end
-end
 
--- Fast Attack цикл
-local fastLoop = nil
-local function StartFastAttack()
-    if fastLoop then return end
-    fastLoop = RunService.Heartbeat:Connect(function()
-        if not state.fastAttack then return end
-        local target = state.pvpMode and GetClosestPlayer() or GetClosestMob()
-        if target then
-            LookAt(target)
-            SendM1()
-        end
-    end)
-end
-local function StopFastAttack()
-    if fastLoop then fastLoop:Disconnect() fastLoop = nil end
+local function StopAutoBoss()
+    if bossLoop then
+        bossLoop:Disconnect()
+        bossLoop = nil
+    end
 end
 
 -- Silent Aim цикл
@@ -237,16 +344,23 @@ local function StartSilentAim()
     if silentLoop then return end
     silentLoop = RunService.Heartbeat:Connect(function()
         if not state.silentAim then return end
-        local target = GetClosestMob()
-        if target then LookAt(target) end
+        local targets = GetTargetsByMode()
+        if #targets > 0 then
+            local target = targets[1].obj
+            LookAt(target)
+        end
     end)
 end
+
 local function StopSilentAim()
-    if silentLoop then silentLoop:Disconnect() silentLoop = nil end
+    if silentLoop then
+        silentLoop:Disconnect()
+        silentLoop = nil
+    end
 end
 
 -- ============================================
--- СОЗДАНИЕ ПРОСТОГО UI
+-- СОЗДАНИЕ UI
 -- ============================================
 
 local screenGui = Instance.new("ScreenGui")
@@ -254,9 +368,9 @@ screenGui.Name = "AbyssHub"
 screenGui.Parent = game:GetService("CoreGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 350, 0, 500)
-mainFrame.Position = UDim2.new(0.5, -175, 0.5, -250)
-mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+mainFrame.Size = UDim2.new(0, 380, 0, 520)
+mainFrame.Position = UDim2.new(0.5, -190, 0.5, -260)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 mainFrame.BorderSizePixel = 0
 mainFrame.ClipsDescendants = true
 mainFrame.Parent = screenGui
@@ -264,7 +378,7 @@ mainFrame.Parent = screenGui
 -- Заголовок
 local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 40)
-titleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+titleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
 titleBar.BorderSizePixel = 0
 titleBar.Parent = mainFrame
 
@@ -277,14 +391,13 @@ title.Font = Enum.Font.GothamBold
 title.BackgroundTransparency = 1
 title.Parent = titleBar
 
--- Кнопка закрытия
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 30, 1, 0)
-closeBtn.Position = UDim2.new(1, -30, 0, 0)
-closeBtn.Text = "X"
+closeBtn.Size = UDim2.new(0, 35, 1, 0)
+closeBtn.Position = UDim2.new(1, -35, 0, 0)
+closeBtn.Text = "✕"
 closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.TextSize = 14
-closeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+closeBtn.TextSize = 16
+closeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
 closeBtn.BorderSizePixel = 0
 closeBtn.Parent = titleBar
 closeBtn.MouseButton1Click:Connect(function()
@@ -295,15 +408,15 @@ closeBtn.MouseButton1Click:Connect(function()
     StopSilentAim()
 end)
 
--- Контейнер для кнопок вкладок
+-- Контейнер вкладок
 local tabContainer = Instance.new("Frame")
 tabContainer.Size = UDim2.new(1, 0, 0, 40)
 tabContainer.Position = UDim2.new(0, 0, 0, 40)
-tabContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+tabContainer.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
 tabContainer.BorderSizePixel = 0
 tabContainer.Parent = mainFrame
 
--- Контейнер для содержимого
+-- Контейнер содержимого
 local contentContainer = Instance.new("ScrollingFrame")
 contentContainer.Size = UDim2.new(1, -10, 1, -90)
 contentContainer.Position = UDim2.new(0, 5, 0, 85)
@@ -327,7 +440,7 @@ local function CreateSection(title)
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Size = UDim2.new(1, 0, 0, 25)
     titleLabel.Text = title
-    titleLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
+    titleLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
     titleLabel.TextSize = 14
     titleLabel.Font = Enum.Font.GothamBold
     titleLabel.BackgroundTransparency = 1
@@ -351,7 +464,7 @@ end
 local function CreateToggle(parent, name, getter, setter)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 0, 35)
-    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    frame.BackgroundColor3 = Color3.fromRGB(38, 38, 48)
     frame.BorderSizePixel = 0
     frame.Parent = parent
     
@@ -383,30 +496,31 @@ local function CreateToggle(parent, name, getter, setter)
     return frame
 end
 
--- Функция создания Dropdown
+-- Функция создания Dropdown (исправлена)
 local function CreateDropdown(parent, name, options, getter, setter)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 35)
-    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    frame.Size = UDim2.new(1, 0, 0, 45)
+    frame.BackgroundColor3 = Color3.fromRGB(38, 38, 48)
     frame.BorderSizePixel = 0
     frame.Parent = parent
     
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.5, -10, 1, 0)
+    label.Size = UDim2.new(1, -10, 0, 20)
+    label.Position = UDim2.new(0, 5, 0, 5)
     label.Text = name
-    label.TextColor3 = Color3.fromRGB(220, 220, 220)
-    label.TextSize = 13
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.TextSize = 12
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.BackgroundTransparency = 1
     label.Parent = frame
     
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 120, 0, 25)
-    btn.Position = UDim2.new(1, -125, 0.5, -12.5)
+    btn.Size = UDim2.new(0.9, 0, 0, 25)
+    btn.Position = UDim2.new(0.05, 0, 0, 22)
     btn.Text = getter()
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.TextSize = 12
-    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    btn.BackgroundColor3 = Color3.fromRGB(55, 55, 70)
     btn.BorderSizePixel = 0
     btn.Parent = frame
     
@@ -421,10 +535,11 @@ local function CreateDropdown(parent, name, options, getter, setter)
         end
         
         dropdownList = Instance.new("Frame")
-        dropdownList.Size = UDim2.new(0, 120, 0, #options * 30)
-        dropdownList.Position = UDim2.new(1, -125, 0, 35)
-        dropdownList.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+        dropdownList.Size = UDim2.new(0.9, 0, 0, #options * 30)
+        dropdownList.Position = UDim2.new(0.05, 0, 0, 47)
+        dropdownList.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
         dropdownList.BorderSizePixel = 0
+        dropdownList.ZIndex = 10
         dropdownList.Parent = frame
         
         for i, opt in ipairs(options) do
@@ -434,8 +549,9 @@ local function CreateDropdown(parent, name, options, getter, setter)
             optBtn.Text = opt
             optBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
             optBtn.TextSize = 12
-            optBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+            optBtn.BackgroundColor3 = Color3.fromRGB(55, 55, 75)
             optBtn.BorderSizePixel = 0
+            optBtn.ZIndex = 11
             optBtn.Parent = dropdownList
             
             optBtn.MouseButton1Click:Connect(function()
@@ -452,27 +568,38 @@ local function CreateDropdown(parent, name, options, getter, setter)
     return frame
 end
 
--- Функция создания Slider
+-- Функция создания Slider (ИСПРАВЛЕНА)
 local function CreateSlider(parent, name, min, max, getter, setter)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 50)
-    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    frame.Size = UDim2.new(1, 0, 0, 55)
+    frame.BackgroundColor3 = Color3.fromRGB(38, 38, 48)
     frame.BorderSizePixel = 0
     frame.Parent = parent
     
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -10, 0, 20)
+    label.Position = UDim2.new(0, 5, 0, 5)
     label.Text = name .. ": " .. tostring(getter())
     label.TextColor3 = Color3.fromRGB(220, 220, 220)
-    label.TextSize = 13
+    label.TextSize = 12
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.BackgroundTransparency = 1
     label.Parent = frame
     
+    local valueLabel = Instance.new("TextLabel")
+    valueLabel.Size = UDim2.new(0, 50, 0, 20)
+    valueLabel.Position = UDim2.new(1, -55, 0, 5)
+    valueLabel.Text = tostring(getter())
+    valueLabel.TextColor3 = Color3.fromRGB(150, 150, 200)
+    valueLabel.TextSize = 12
+    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.Parent = frame
+    
     local sliderBg = Instance.new("Frame")
-    sliderBg.Size = UDim2.new(0.8, 0, 0, 4)
-    sliderBg.Position = UDim2.new(0.1, 0, 0.6, 0)
-    sliderBg.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+    sliderBg.Size = UDim2.new(0.9, 0, 0, 4)
+    sliderBg.Position = UDim2.new(0.05, 0, 0, 35)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
     sliderBg.BorderSizePixel = 0
     sliderBg.Parent = frame
     
@@ -484,11 +611,16 @@ local function CreateSlider(parent, name, min, max, getter, setter)
     
     local dragging = false
     
-    local function updateSlider(inputPos)
-        local pos = math.clamp((inputPos.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
+    local function updateSlider(input)
+        local mousePos = input.Position
+        local sliderPos = sliderBg.AbsolutePosition.X
+        local sliderWidth = sliderBg.AbsoluteSize.X
+        
+        local pos = math.clamp((mousePos.X - sliderPos) / sliderWidth, 0, 1)
         local value = math.floor(min + (max - min) * pos)
         setter(value)
         label.Text = name .. ": " .. tostring(value)
+        valueLabel.Text = tostring(value)
         fill.Size = UDim2.new(pos, 0, 1, 0)
     end
     
@@ -517,11 +649,12 @@ end
 -- Функция создания кнопки
 local function CreateButton(parent, name, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 35)
+    btn.Size = UDim2.new(0.9, 0, 0, 35)
+    btn.Position = UDim2.new(0.05, 0, 0, 0)
     btn.Text = name
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.TextSize = 13
-    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+    btn.BackgroundColor3 = Color3.fromRGB(55, 55, 75)
     btn.BorderSizePixel = 0
     btn.Parent = parent
     
@@ -530,28 +663,27 @@ local function CreateButton(parent, name, callback)
 end
 
 -- Создание вкладок
-local tabs = {"Auto Farm", "Auto Boss", "Silent Aim", "PvP", "Teleports"}
+local tabsList = {"Auto Farm", "Auto Boss", "Silent Aim", "PvP", "Teleports"}
 local tabButtons = {}
-local currentTab = nil
 
-for i, tabName in ipairs(tabs) do
+for i, tabName in ipairs(tabsList) do
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0.2, -2, 1, 0)
     btn.Position = UDim2.new((i-1) * 0.2, 2, 0, 0)
     btn.Text = tabName
     btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.TextSize = 11
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    btn.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
     btn.BorderSizePixel = 0
     btn.Parent = tabContainer
     tabButtons[tabName] = btn
     
     btn.MouseButton1Click:Connect(function()
         for _, tb in pairs(tabButtons) do
-            tb.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+            tb.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
             tb.TextColor3 = Color3.fromRGB(200, 200, 200)
         end
-        btn.BackgroundColor3 = Color3.fromRGB(55, 55, 70)
+        btn.BackgroundColor3 = Color3.fromRGB(55, 55, 80)
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         
         for _, child in pairs(contentContainer:GetChildren()) do
@@ -566,7 +698,7 @@ for i, tabName in ipairs(tabs) do
                 state.autoFarm = v
                 if v then StartAutoFarm() else StopAutoFarm() end
             end)
-            CreateDropdown(cf, "Режим", {"Nearest", "Level"}, function() return state.farmMode end, function(v) state.farmMode = v end)
+            CreateDropdown(cf, "Режим фермы", {"Nearest", "Level"}, function() return state.farmMode end, function(v) state.farmMode = v end)
             
         elseif tabName == "Auto Boss" then
             local cf, sec = CreateSection("Фарм боссов")
@@ -583,9 +715,9 @@ for i, tabName in ipairs(tabs) do
                 state.silentAim = v
                 if v then StartSilentAim() else StopSilentAim() end
             end)
-            CreateDropdown(cf, "Режим цели", {"Closest", "Farthest", "Weakest", "Strongest"}, 
+            CreateDropdown(cf, "Режим выбора цели", {"Closest", "Farthest", "Weakest", "Strongest"}, 
                 function() return state.aimMode end, function(v) state.aimMode = v end)
-            CreateSlider(cf, "Макс. дистанция", 50, 500, function() return state.maxDistance end, function(v) state.maxDistance = v end)
+            CreateSlider(cf, "Максимальная дистанция", 50, 500, function() return state.maxDistance end, function(v) state.maxDistance = v end)
                 
         elseif tabName == "PvP" then
             local cf, sec = CreateSection("PvP функции")
@@ -594,10 +726,12 @@ for i, tabName in ipairs(tabs) do
                 if v then StartFastAttack() else StopFastAttack() end
             end)
             CreateToggle(cf, "PvP Mode", function() return state.pvpMode end, function(v) state.pvpMode = v end)
-            CreateToggle(cf, "Speed Boost", function() return state.speedEnabled end, function(v) state.speedEnabled = v; UpdateMovement() end)
-            CreateSlider(cf, "Speed Value", 16, 100, function() return state.speedValue end, function(v) state.speedValue = v; UpdateMovement() end)
-            CreateToggle(cf, "Jump Boost", function() return state.jumpEnabled end, function(v) state.jumpEnabled = v; UpdateMovement() end)
-            CreateSlider(cf, "Jump Value", 50, 200, function() return state.jumpValue end, function(v) state.jumpValue = v; UpdateMovement() end)
+            
+            local cf2, sec2 = CreateSection("Настройки движения")
+            CreateToggle(cf2, "Speed Boost", function() return state.speedEnabled end, function(v) state.speedEnabled = v; UpdateMovement() end)
+            CreateSlider(cf2, "Скорость", 16, 100, function() return state.speedValue end, function(v) state.speedValue = v; UpdateMovement() end)
+            CreateToggle(cf2, "Jump Boost", function() return state.jumpEnabled end, function(v) state.jumpEnabled = v; UpdateMovement() end)
+            CreateSlider(cf2, "Сила прыжка", 50, 200, function() return state.jumpValue end, function(v) state.jumpValue = v; UpdateMovement() end)
                 
         elseif tabName == "Teleports" then
             local cf, sec = CreateSection("Моря")
@@ -614,7 +748,6 @@ for i, tabName in ipairs(tabs) do
             CreateButton(cf2, "🏝️ Port Town", function() Teleport(Vector3.new(-2350, 25, -4250)) end)
         end
         
-        -- Обновление размера Canvas
         task.wait(0.05)
         local totalHeight = 0
         for _, child in pairs(contentContainer:GetChildren()) do
@@ -666,4 +799,4 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 print("✅ Abyss Hub v4.0 загружен!")
-print("📌 Клавиша: Right Control | Все функции активны!")
+print("📌 Клавиша: Right Control")
